@@ -16,7 +16,7 @@ import type { CategoryChannel, Guild, GuildMember, TextChannel } from 'discord.j
 import { loadEnv } from '../config/env.js';
 import { enableFileLogging, log, setLogLevel } from '../core/logger.js';
 import { exportAll, importAll, readBackupFile } from '../database/backup.js';
-import { runAutoBackup } from '../discord/backups.js';
+import { backupChannelIsPrivate, runAutoBackup } from '../discord/backups.js';
 import { existsSync, readFileSync, rmSync } from 'node:fs';
 import { parse as parseDotenv } from 'dotenv';
 import { basename } from 'node:path';
@@ -547,28 +547,46 @@ try {
     check(msgs.size > 5, `only ${msgs.size} log messages`);
   });
 
-  await step('Automatic backup is saved, uploaded to the backup channel and can be read back', async () => {
-    const logs = await fetchTextChannel(client, guild.id, (await cfg()).logChannelId!);
-    setRuntimeEnv({ ...env, BACKUP_CHANNEL_ID: logs!.id });
-    try {
-      const file = await runAutoBackup(client, true);
-      check(file !== null, 'no backup written');
-      const restored = readBackupFile(file!);
-      check((restored.tables.match?.length ?? 0) > 0, 'backup has no matches');
-      rmSync(file!, { force: true });
-      const last = (await logs!.messages.fetch({ limit: 1 })).first();
-      const att = last?.attachments.first();
-      check(att?.name === basename(file!), 'backup file not posted to the channel');
-      const downloaded = Buffer.from(await (await fetch(att!.url)).arrayBuffer());
-      const fromDiscord = JSON.parse(gunzipSync(downloaded).toString('utf8')) as typeof restored;
-      check(
-        JSON.stringify(fromDiscord) === JSON.stringify(restored),
-        'backup downloaded from Discord differs from the saved file',
-      );
-    } finally {
-      setRuntimeEnv(env);
-    }
-  });
+  await step(
+    'Automatic backup is saved, uploaded to a private channel only, and can be read back',
+    async () => {
+      const logs = await fetchTextChannel(client, guild.id, (await cfg()).logChannelId!);
+      setRuntimeEnv({ ...env, BACKUP_CHANNEL_ID: logs!.id });
+      try {
+        const file = await runAutoBackup(client, true);
+        check(file !== null, 'no backup written');
+        const restored = readBackupFile(file!);
+        check((restored.tables.match?.length ?? 0) > 0, 'backup has no matches');
+        rmSync(file!, { force: true });
+        const last = (await logs!.messages.fetch({ limit: 1 })).first();
+        const att = last?.attachments.first();
+        check(att?.name === basename(file!), 'backup file not posted to the channel');
+        const downloaded = Buffer.from(await (await fetch(att!.url)).arrayBuffer());
+        const fromDiscord = JSON.parse(gunzipSync(downloaded).toString('utf8')) as typeof restored;
+        check(
+          JSON.stringify(fromDiscord) === JSON.stringify(restored),
+          'backup downloaded from Discord differs from the saved file',
+        );
+        // A channel that @everyone can read must never receive backups.
+        const pub = await guild.channels.create({
+          name: 'public-backup-test',
+          type: ChannelType.GuildText,
+          parent: category!.id,
+        });
+        created.push(pub.id);
+        await pub.permissionOverwrites.edit(guild.roles.everyone, { ViewChannel: true });
+        check(backupChannelIsPrivate(logs!), 'private channel reported as public');
+        const pubNow = (await client.channels.fetch(pub.id, { force: true })) as TextChannel;
+        check(!backupChannelIsPrivate(pubNow), 'public channel reported as private');
+        setRuntimeEnv({ ...env, BACKUP_CHANNEL_ID: pub.id });
+        const again = await runAutoBackup(client, true);
+        rmSync(again!, { force: true });
+        check((await pub.messages.fetch({ limit: 5 })).size === 0, 'backup was posted to a PUBLIC channel');
+      } finally {
+        setRuntimeEnv(env);
+      }
+    },
+  );
 } finally {
   console.log('\n🧹 Cleaning up…');
   if (!keep) {

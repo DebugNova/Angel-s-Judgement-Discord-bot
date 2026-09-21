@@ -83,7 +83,10 @@ describe('backup files', () => {
 });
 
 describe('backup settings', () => {
-  const base = { DISCORD_TOKEN: `MTU1MTY1MjYxNDU2NjA1MTkzMQ.${'x'.repeat(60)}`, EMBEDDED_DB: 'true' };
+  const base = {
+    DISCORD_TOKEN: `${Buffer.from('100000000000000001').toString('base64')}.${'x'.repeat(60)}`,
+    EMBEDDED_DB: 'true',
+  };
 
   it('uses defaults when the backup settings are blank or missing', () => {
     const env = loadEnv({ ...base, BACKUP_INTERVAL_MINUTES: '', BACKUP_KEEP: ' ', BACKUP_CHANNEL_ID: '' });
@@ -94,9 +97,9 @@ describe('backup settings', () => {
   });
 
   it('accepts real values and rejects bad channel IDs', () => {
-    const env = loadEnv({ ...base, BACKUP_INTERVAL_MINUTES: '0', BACKUP_CHANNEL_ID: '1536347819672080487' });
+    const env = loadEnv({ ...base, BACKUP_INTERVAL_MINUTES: '0', BACKUP_CHANNEL_ID: '100000000000000099' });
     expect(env.BACKUP_INTERVAL_MINUTES).toBe(0);
-    expect(env.BACKUP_CHANNEL_ID).toBe('1536347819672080487');
+    expect(env.BACKUP_CHANNEL_ID).toBe('100000000000000099');
     expect(() => loadEnv({ ...base, BACKUP_CHANNEL_ID: '#backups' })).toThrow(/BACKUP_CHANNEL_ID/);
   });
 });

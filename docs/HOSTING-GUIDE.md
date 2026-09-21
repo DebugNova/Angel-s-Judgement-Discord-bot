@@ -78,7 +78,7 @@ The bot posts a backup file here every hour when something changes. These files 
 1. In your **clan** Discord server, right-click the channel list and choose **Create Channel**.
 2. Type **Text**, name `bot-backups`.
 3. Turn **Private Channel** ON, click **Next**, don't add anyone, and click **Create Channel**.
-   > Backups contain private server links and match evidence, so only you should see this channel.
+   > Backups contain private server links and match evidence, so only you should see this channel. As a safety net, the bot **refuses to post backups** in a channel that @everyone can see. Backups are then only saved on Shulker, and the log shows `BACKUP_CHANNEL_NOT_PRIVATE`.
 4. Let the bot in: right-click **#bot-backups** → **Edit Channel** → **Permissions** → **Add members or roles** → pick **Angel's Judgement**. Tick **View Channel**, **Send Messages** and **Attach Files**, then **Save Changes**.
 5. Copy the channel's ID:
    - Discord **User Settings** (gear next to your name) → **Advanced** → turn on **Developer Mode**.
@@ -176,6 +176,10 @@ The `.env` file is the bot's private settings file. The setup already created it
 > To check (this shows everything **except** the token):
 > ```
 > grep -v TOKEN /data/bot/.env | grep -v '^#' | grep .
+> ```
+> Commands you type can be remembered by the terminal, and the first one above contains your token. When you're done, erase that memory:
+> ```
+> rm -f ~/.ash_history ~/.bash_history
 > ```
 
 ## Part 5: Move your data to Shulker

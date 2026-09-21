@@ -1,8 +1,8 @@
 import { createHash } from 'node:crypto';
 import { readFileSync } from 'node:fs';
 import { basename } from 'node:path';
-import { AttachmentBuilder, ChannelType } from 'discord.js';
-import type { Client } from 'discord.js';
+import { AttachmentBuilder, ChannelType, PermissionFlagsBits } from 'discord.js';
+import type { Client, TextChannel } from 'discord.js';
 import { log } from '../core/logger.js';
 import { describeBackup, exportAll, pruneBackups, writeBackupFile } from '../database/backup.js';
 import { runtimeEnv } from './context.js';
@@ -47,9 +47,18 @@ async function uploadBackup(
   file: string,
   createdAt: string,
 ): Promise<void> {
-  const channel = await client.channels.fetch(channelId).catch(() => null);
+  // force: always read the channel's current permissions from Discord, never a stale cached copy.
+  const channel = await client.channels.fetch(channelId, { force: true }).catch(() => null);
   if (!channel || channel.type !== ChannelType.GuildText) {
     log.warn('BACKUP_CHANNEL_UNAVAILABLE', { channel: channelId });
+    return;
+  }
+  // Backups hold private server links and evidence (Rule 8): never post them where members can read.
+  if (!backupChannelIsPrivate(channel)) {
+    log.error('BACKUP_CHANNEL_NOT_PRIVATE', {
+      channel: `#${channel.name}`,
+      fix: 'Make the channel private (deny View Channel for @everyone); backups are still saved on disk',
+    });
     return;
   }
   const data = readFileSync(file);
@@ -62,6 +71,11 @@ async function uploadBackup(
     files: [new AttachmentBuilder(data, { name: basename(file) })],
     allowedMentions: { parse: [] },
   });
+}
+
+/** True when @everyone cannot see the channel. */
+export function backupChannelIsPrivate(channel: TextChannel): boolean {
+  return !channel.permissionsFor(channel.guild.roles.everyone).has(PermissionFlagsBits.ViewChannel);
 }
 
 export function startAutoBackups(client: Client): void {
