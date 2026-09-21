@@ -12,7 +12,7 @@ Node 20.11+ (dev machine runs 24) · TypeScript **5.9** strict, ESM (`"type": "m
 | --- | --- |
 | `npm run check` | typecheck + lint + all tests. **Run after every change.** |
 | `npm test` | vitest; spins up a throw-away embedded PostgreSQL on port 54339 |
-| `npm run smoke` | LIVE end-to-end test in the real Discord server (bot must be stopped; restores the DB afterwards). Run after changing anything in `src/discord/`. |
+| `npm run smoke` | LIVE end-to-end test in the server from `DISCORD_GUILD_ID` (local bot must be stopped; restores the DB afterwards; needs two other bots in that server as stand-in players). Refuses the real token from `.env.production`: the PC is meant to run the TEST bot (`use-test-bot.bat`) in the test server. Run after changing anything in `src/discord/`. |
 | `npm run build` / `npm start` / `start.bat` | build to `dist/` / run the bot |
 | `npm run db:dev` | run the embedded DB in the foreground for `npx prisma migrate dev` / `studio` |
 | `npm run db:backup` / `db:restore -- file --yes` | JSON backup/restore of every table |
@@ -47,6 +47,7 @@ Node 20.11+ (dev machine runs 24) · TypeScript **5.9** strict, ESM (`"type": "m
 - The bot must run as **one instance**. Before `npm run smoke` or `db:restore`, make sure it's stopped (`smoke` refuses if it detects the bot's DB in use).
 - The embedded DB lives in `%LOCALAPPDATA%\SatanBot\postgres` (never inside OneDrive). A force-closed run leaves a hung orphan that `embedded.ts` detects and replaces on the next start.
 - Logs: console + `logs/bot-YYYY-MM-DD.log` (UTC, 30 days kept). Tests log at `error` level only.
+- Owner-facing hosting/testing/update walkthrough: `docs/HOSTING-GUIDE.md` (keep it in sync when scripts or flows change).
 - Production runs on a Shulker container (`node:20-alpine`, 512 MB, root) at `/data/bot` with its own PostgreSQL in `/data/postgres`, driven by `scripts/host-*.sh` (README §9). The bot auto-backs up to `backups/auto/` and to `BACKUP_CHANNEL_ID`. Only one instance: stop the PC copy while Shulker runs.
 - `.env` holds the real bot token. Never print it, commit it or send it anywhere except Discord.
 - Git: commit each fix/feature with a clear message so it can be rolled back (`git log`, `git revert`).

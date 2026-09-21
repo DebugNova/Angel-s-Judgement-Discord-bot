@@ -17,7 +17,8 @@ import { loadEnv } from '../config/env.js';
 import { enableFileLogging, log, setLogLevel } from '../core/logger.js';
 import { exportAll, importAll, readBackupFile } from '../database/backup.js';
 import { runAutoBackup } from '../discord/backups.js';
-import { rmSync } from 'node:fs';
+import { existsSync, readFileSync, rmSync } from 'node:fs';
+import { parse as parseDotenv } from 'dotenv';
 import { basename } from 'node:path';
 import { gunzipSync } from 'node:zlib';
 import { db, disconnectDb } from '../database/client.js';
@@ -63,6 +64,18 @@ import { connectForScript } from './db-connect.js';
 
 const keep = process.argv.includes('--keep');
 const env = loadEnv();
+
+// The live bot runs on Shulker with the token saved in .env.production. Testing with that token
+// here would log in a second copy of the real bot, so only the test bot may run the smoke test.
+if (existsSync('.env.production') && !process.argv.includes('--allow-real-bot')) {
+  const real = parseDotenv(readFileSync('.env.production')).DISCORD_TOKEN?.trim();
+  if (real && real === env.DISCORD_TOKEN) {
+    console.error(
+      '✋ .env holds the REAL bot token. Double-click use-test-bot.bat first, then run the smoke test again.',
+    );
+    process.exit(1);
+  }
+}
 setLogLevel('warn');
 enableFileLogging('logs');
 setRuntimeEnv(env);

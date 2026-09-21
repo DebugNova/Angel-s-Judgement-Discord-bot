@@ -27,6 +27,8 @@
 10. [Development](#10-development)
 11. [Troubleshooting](#11-troubleshooting)
 
+**Hosting on Shulker, testing and updating, step by step:** [docs/HOSTING-GUIDE.md](docs/HOSTING-GUIDE.md)
+
 More detail: [TEST.md](TEST.md) (step-by-step testing) · [docs/DEBUGGING.md](docs/DEBUGGING.md) (bugs & fixes) · [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md) · [docs/ADMIN.md](docs/ADMIN.md)
 
 ---
