@@ -1,0 +1,420 @@
+// Satan — Seven Angels competitive platform
+// PostgreSQL schema. Standard PostgreSQL only (works locally, in Docker, on a VPS or on Supabase).
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+// ───────────────────────────── Enums ─────────────────────────────
+
+enum GameMode {
+  ONE_V_ONE
+  TEAM
+  DIVISION
+  TOURNAMENT
+  CUSTOM
+}
+
+enum ChallengeStatus {
+  PENDING
+  ACCEPTED
+  DECLINED
+  CANCELLED
+  EXPIRED
+}
+
+enum MatchStatus {
+  PENDING
+  ACCEPTED
+  ACTIVE
+  RESULT_PENDING
+  DISPUTED
+  UNDER_REVIEW
+  COMPLETED
+  CANCELLED
+  EXPIRED
+}
+
+enum ResultStatus {
+  NONE
+  PLAYER_REPORTED
+  CONFIRMED
+  DISPUTED
+  STAFF_DECIDED
+}
+
+enum ResolutionMethod {
+  PLAYER_CONFIRMATION
+  REFEREE_DECISION
+  FORCE_COMPLETE
+}
+
+enum Outcome {
+  WIN
+  LOSS
+  DRAW
+}
+
+enum EloChangeReason {
+  MATCH
+  RESET
+  ADMIN
+}
+
+enum SeasonStatus {
+  ACTIVE
+  ENDED
+}
+
+// ───────────────────────────── Configuration ─────────────────────────────
+
+/// Per-guild configuration. Every Discord ID the bot relies on lives here, never in code.
+model GuildConfig {
+  guildId String @id
+
+  // Channels
+  matchCategoryId      String?
+  historyChannelId     String?
+  leaderboardChannelId String?
+  leaderboardMessageId String?
+  logChannelId         String?
+  staffChannelId       String?
+
+  // Roles (Discord role IDs, never names)
+  refereeRoleIds   String[] @default([])
+  moderatorRoleIds String[] @default([])
+  adminRoleIds     String[] @default([])
+
+  // ELO
+  startingElo Int @default(1000)
+  kFactor     Int @default(32)
+  minElo      Int @default(0)
+  maxElo      Int @default(5000)
+
+  // Challenges & cooldowns (seconds)
+  challengeTimeoutSec         Int @default(60)
+  pairCooldownSec             Int @default(60)
+  globalCooldownSec           Int @default(0)
+  challengeCommandCooldownSec Int @default(10)
+  maxIncomingChallenges       Int @default(3)
+
+  // Leaderboard
+  minLeaderboardMatches Int @default(5)
+  maxLeaderboardSize    Int @default(30)
+
+  // Matches
+  maxActiveMatches   Int     @default(40)
+  channelPrefix      String  @default("queue")
+  matchIdPrefix      String  @default("SA")
+  autoDeleteChannels Boolean @default(true)
+  autoDeleteDelaySec Int     @default(600)
+  evidenceRequired   Boolean @default(false)
+  stickyPanel        Boolean @default(true)
+  matchCounter       Int     @default(0)
+
+  // Display & operations
+  useEmojis          Boolean @default(true)
+  maintenanceMode    Boolean @default(false)
+  maintenanceMessage String?
+  activeSeasonId     String?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
+
+// ───────────────────────────── Players ─────────────────────────────
+
+/// A competitor in one guild. Stats are per-guild so the bot can serve several servers.
+model Player {
+  id          String @id @default(uuid())
+  guildId     String
+  discordId   String
+  username    String
+  displayName String
+
+  elo              Int
+  highestElo       Int
+  wins             Int   @default(0)
+  losses           Int   @default(0)
+  draws            Int   @default(0)
+  matchesPlayed    Int   @default(0)
+  winRate          Float @default(0)
+  currentWinStreak Int   @default(0)
+  highestWinStreak Int   @default(0)
+
+  isBanned  Boolean   @default(false)
+  banReason String?
+  bannedAt  DateTime?
+  bannedBy  String?
+
+  /// The match this player is currently locked into (null = free). Guarded by row locks.
+  currentMatchId String?
+  statsResetAt   DateTime?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  challengesSent     Challenge[]        @relation("ChallengeChallenger")
+  challengesReceived Challenge[]        @relation("ChallengeChallenged")
+  matchesAsChallenger Match[]           @relation("MatchChallenger")
+  matchesAsOpponent  Match[]            @relation("MatchOpponent")
+  matchesWon         Match[]            @relation("MatchWinner")
+  matchesLost        Match[]            @relation("MatchLoser")
+  participations     MatchParticipant[]
+  eloHistory         EloHistory[]
+  reportedResults    MatchResult[]      @relation("ResultReportedWinner")
+  confirmedResults   MatchResult[]      @relation("ResultConfirmedWinner")
+
+  @@unique([guildId, discordId])
+  @@index([guildId, elo])
+  @@index([guildId, isBanned, matchesPlayed])
+  @@index([currentMatchId])
+}
+
+// ───────────────────────────── Seasons (future-ready) ─────────────────────────────
+
+model Season {
+  id        String       @id @default(uuid())
+  guildId   String
+  number    Int
+  name      String
+  status    SeasonStatus @default(ACTIVE)
+  startDate DateTime     @default(now())
+  endDate   DateTime?
+  createdAt DateTime     @default(now())
+
+  matches    Match[]
+  eloHistory EloHistory[]
+
+  @@unique([guildId, number])
+  @@index([guildId, status])
+}
+
+// ───────────────────────────── Challenges ─────────────────────────────
+
+model Challenge {
+  id           String          @id @default(uuid())
+  guildId      String
+  gameMode     GameMode        @default(ONE_V_ONE)
+  challengerId String
+  challengedId String
+  /// Sorted "a:b" of both player IDs — used to detect duplicate challenges between a pair.
+  pairKey      String
+  status       ChallengeStatus @default(PENDING)
+  channelId    String?
+  messageId    String?
+  createdAt    DateTime        @default(now())
+  expiresAt    DateTime
+  respondedAt  DateTime?
+
+  challenger Player @relation("ChallengeChallenger", fields: [challengerId], references: [id], onDelete: Cascade)
+  challenged Player @relation("ChallengeChallenged", fields: [challengedId], references: [id], onDelete: Cascade)
+  match      Match?
+
+  @@index([guildId, status])
+  @@index([status, expiresAt])
+  @@index([challengerId, status])
+  @@index([challengedId, status])
+  @@index([guildId, pairKey, status])
+}
+
+// ───────────────────────────── Matches ─────────────────────────────
+
+/// A match between sides. 1v1 uses two single-player teams (team 0 and team 1),
+/// so Team / Division / Tournament modes can reuse the same model later.
+model Match {
+  id          String      @id @default(uuid())
+  guildId     String
+  matchNumber Int
+  /// Readable, user-facing ID such as SA-000124
+  matchId     String
+  gameMode    GameMode    @default(ONE_V_ONE)
+  status      MatchStatus @default(PENDING)
+  resultStatus     ResultStatus      @default(NONE)
+  resolutionMethod ResolutionMethod?
+
+  challengeId  String? @unique
+  challengerId String
+  opponentId   String
+  winnerId     String?
+  loserId      String?
+
+  refereeDiscordId    String?
+  decisionReason      String?
+  cancelRequestedById String?
+  cancelledByDiscordId String?
+  cancelReason        String?
+
+  channelId      String?
+  channelName    String?
+  categoryId     String?
+  panelMessageId String?
+  serverLink     String?
+  serverLinkById String?
+
+  evidenceRequired    Boolean   @default(false)
+  evidenceRequestedAt DateTime?
+
+  // Future expansion (not used by 1v1 yet)
+  seasonId        String?
+  divisionId      String?
+  teamId          String?
+  tournamentId    String?
+  round           Int?
+  bracketPosition Int?
+
+  createdAt        DateTime  @default(now())
+  acceptedAt       DateTime?
+  startedAt        DateTime?
+  completedAt      DateTime?
+  cancelledAt      DateTime?
+  disputedAt       DateTime?
+  reviewedAt       DateTime?
+  cleanupAt        DateTime?
+  channelDeletedAt DateTime?
+  updatedAt        DateTime  @updatedAt
+
+  challenge    Challenge?         @relation(fields: [challengeId], references: [id], onDelete: SetNull)
+  challenger   Player             @relation("MatchChallenger", fields: [challengerId], references: [id], onDelete: Cascade)
+  opponent     Player             @relation("MatchOpponent", fields: [opponentId], references: [id], onDelete: Cascade)
+  winner       Player?            @relation("MatchWinner", fields: [winnerId], references: [id], onDelete: SetNull)
+  loser        Player?            @relation("MatchLoser", fields: [loserId], references: [id], onDelete: SetNull)
+  season       Season?            @relation(fields: [seasonId], references: [id], onDelete: SetNull)
+  participants MatchParticipant[]
+  result       MatchResult?
+  eloHistory   EloHistory[]
+  evidence     Evidence[]
+  notes        MatchNote[]
+
+  @@unique([guildId, matchId])
+  @@unique([guildId, matchNumber])
+  @@index([guildId, status])
+  @@index([channelId])
+  @@index([winnerId])
+  @@index([loserId])
+  @@index([createdAt])
+  @@index([seasonId])
+  @@index([cleanupAt])
+  @@index([guildId, completedAt])
+}
+
+model MatchParticipant {
+  id       String   @id @default(uuid())
+  matchId  String
+  playerId String
+  /// Side of the match: 0 = challenger side, 1 = opponent side
+  team     Int
+  outcome  Outcome?
+
+  match  Match  @relation(fields: [matchId], references: [id], onDelete: Cascade)
+  player Player @relation(fields: [playerId], references: [id], onDelete: Cascade)
+
+  @@unique([matchId, playerId])
+  @@index([playerId])
+}
+
+model MatchResult {
+  id                   String       @id @default(uuid())
+  matchId              String       @unique
+  reportedWinnerId     String?
+  reportedByDiscordId  String?
+  confirmedWinnerId    String?
+  confirmedByDiscordId String?
+  status               ResultStatus @default(NONE)
+  submittedAt          DateTime?
+  confirmedAt          DateTime?
+  disputedAt           DateTime?
+  finalizedAt          DateTime?
+
+  match           Match   @relation(fields: [matchId], references: [id], onDelete: Cascade)
+  reportedWinner  Player? @relation("ResultReportedWinner", fields: [reportedWinnerId], references: [id], onDelete: SetNull)
+  confirmedWinner Player? @relation("ResultConfirmedWinner", fields: [confirmedWinnerId], references: [id], onDelete: SetNull)
+}
+
+// ───────────────────────────── ELO history ─────────────────────────────
+
+/// Every rating change is recorded here — ELO is never silently overwritten.
+model EloHistory {
+  id          String          @id @default(uuid())
+  guildId     String
+  playerId    String
+  matchId     String?
+  seasonId    String?
+  reason      EloChangeReason @default(MATCH)
+  oldElo      Int
+  newElo      Int
+  eloChange   Int
+  opponentElo Int?
+  createdAt   DateTime        @default(now())
+
+  player Player  @relation(fields: [playerId], references: [id], onDelete: Cascade)
+  match  Match?  @relation(fields: [matchId], references: [id], onDelete: SetNull)
+  season Season? @relation(fields: [seasonId], references: [id], onDelete: SetNull)
+
+  @@index([playerId, createdAt])
+  @@index([matchId])
+  @@index([guildId, createdAt])
+}
+
+// ───────────────────────────── Evidence & notes ─────────────────────────────
+
+model Evidence {
+  id                   String   @id @default(uuid())
+  matchId              String
+  submittedByDiscordId String
+  channelId            String
+  messageId            String
+  attachmentUrl        String
+  fileName             String
+  contentType          String?
+  createdAt            DateTime @default(now())
+
+  match Match @relation(fields: [matchId], references: [id], onDelete: Cascade)
+
+  @@index([matchId])
+}
+
+model MatchNote {
+  id              String   @id @default(uuid())
+  matchId         String
+  authorDiscordId String
+  content         String
+  createdAt       DateTime @default(now())
+
+  match Match @relation(fields: [matchId], references: [id], onDelete: Cascade)
+
+  @@index([matchId])
+}
+
+// ───────────────────────────── Cooldowns & audit ─────────────────────────────
+
+/// Restart-safe cooldowns (pair cooldowns after a decline, optional global cooldowns).
+model Cooldown {
+  id        String   @id @default(uuid())
+  guildId   String
+  key       String
+  expiresAt DateTime
+
+  @@unique([guildId, key])
+  @@index([expiresAt])
+}
+
+model AuditLog {
+  id        String   @id @default(uuid())
+  guildId   String
+  actorId   String
+  action    String
+  targetId  String?
+  matchId   String?
+  metadata  Json?
+  createdAt DateTime @default(now())
+
+  @@index([guildId, createdAt])
+  @@index([guildId, action])
+  @@index([matchId])
+}

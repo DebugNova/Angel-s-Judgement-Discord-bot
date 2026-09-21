@@ -1,0 +1,49 @@
+{
+  "name": "angels-judgement-bot",
+  "version": "1.0.0",
+  "description": "Angel's Judgement — Seven Angels 1v1 matchmaking, referee & ELO ranking bot for Discord",
+  "private": true,
+  "type": "module",
+  "license": "MIT",
+  "engines": {
+    "node": ">=20.11"
+  },
+  "main": "dist/index.js",
+  "scripts": {
+    "build": "tsc -p tsconfig.build.json",
+    "start": "node dist/index.js",
+    "dev": "tsx watch src/index.ts",
+    "typecheck": "tsc --noEmit",
+    "lint": "eslint .",
+    "format": "prettier --write .",
+    "test": "vitest run",
+    "db:generate": "prisma generate",
+    "db:migrate": "prisma migrate deploy",
+    "db:studio": "prisma studio",
+    "db:backup": "node dist/scripts/backup.js",
+    "db:restore": "node dist/scripts/restore.js",
+    "commands:deploy": "node dist/scripts/deploy-commands.js",
+    "postinstall": "prisma generate",
+    "db:dev": "node scripts/dev-db.mjs",
+    "check": "npm run typecheck && npm run lint && npm test",
+    "smoke": "npm run build && node dist/scripts/smoke.js"
+  },
+  "dependencies": {
+    "@prisma/client": "^6.19.3",
+    "discord.js": "^14.27.0",
+    "dotenv": "^16.6.1",
+    "embedded-postgres": "^17.10.0-beta.17",
+    "prisma": "^6.19.3",
+    "zod": "^3.25.76"
+  },
+  "devDependencies": {
+    "@eslint/js": "^9.39.5",
+    "@types/node": "^22.20.4",
+    "eslint": "^9.39.5",
+    "prettier": "^3.9.8",
+    "tsx": "^4.23.15",
+    "typescript": "^5.9.3",
+    "typescript-eslint": "^8.70.1",
+    "vitest": "^3.2.7"
+  }
+}
