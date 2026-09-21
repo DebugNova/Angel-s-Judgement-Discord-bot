@@ -9,6 +9,7 @@ import { runMigrations } from './database/migrate.js';
 import { setRuntimeEnv } from './discord/context.js';
 import { registerEvents } from './discord/events.js';
 import { stopScheduler } from './discord/jobs.js';
+import { stopPresence } from './discord/presence.js';
 
 // Registered before anything else so no failure during startup can go unlogged.
 process.on('unhandledRejection', (reason) => log.error('UNHANDLED_REJECTION', undefined, reason));
@@ -51,6 +52,7 @@ async function main(): Promise<void> {
     shuttingDown = true;
     log.info('SHUTTING_DOWN', { signal });
     stopScheduler();
+    stopPresence();
     await client.destroy().catch(() => undefined);
     await disconnectDb().catch(() => undefined);
     await embedded?.stop().catch(() => undefined);

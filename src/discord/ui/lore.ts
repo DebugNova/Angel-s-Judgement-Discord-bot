@@ -7,7 +7,6 @@ export const Brand = {
   author: "ANGEL'S JUDGEMENT • SEVEN ANGELS",
   footer: "Seven Angels • Angel's Judgement",
   tagline: 'Seven Angels. One Judgement.',
-  presence: 'over the Seven Angels',
   channelTopic: "Angel's Judgement",
 } as const;
 
@@ -27,3 +26,53 @@ export const Lore = {
   leaderboardPanel: 'Every victory raises you. Every defeat casts you down.',
   choir: (choir: string) => `Choir of the ${choir}`,
 } as const;
+
+/**
+ * The bot's "About Me" on its Discord profile (max 400 characters). Set automatically on start.
+ * Set to '' to leave whatever is typed in the Developer Portal untouched.
+ */
+export const Bio = [
+  '⚔️ The ranked 1v1 arbiter of the Seven Angels.',
+  '',
+  '• Challenge anyone with /1v1',
+  '• Private match rooms, fair referees',
+  '• Live ELO, stats & leaderboards',
+  '',
+  'Every duel is a trial. Every trial ends in judgement.',
+  '',
+  '📜 /help to begin',
+].join('\n');
+
+export interface StatusStats {
+  liveMatches: number;
+  completedMatches: number;
+  players: number;
+  champion: { name: string; elo: number } | null;
+}
+
+export type StatusKind = 'watching' | 'competing' | 'playing' | 'listening' | 'custom';
+
+/**
+ * The rotating status lines (one every 10 seconds). A line returning null is skipped, e.g. the
+ * champion line before anyone has qualified. "watching X" shows as "Watching X" on Discord.
+ */
+export const StatusLines: ((s: StatusStats) => { kind: StatusKind; text: string } | null)[] = [
+  () => ({ kind: 'watching', text: 'over the Seven Angels' }),
+  (s) =>
+    s.liveMatches > 0
+      ? { kind: 'watching', text: `${s.liveMatches} live trial${s.liveMatches === 1 ? '' : 's'}` }
+      : { kind: 'custom', text: '⚔️ The arena is quiet. /1v1 to start a trial' },
+  (s) =>
+    s.champion ? { kind: 'custom', text: `👑 Champion: ${s.champion.name} • ${s.champion.elo} ELO` } : null,
+  () => ({ kind: 'competing', text: 'ranked 1v1s' }),
+  (s) =>
+    s.completedMatches > 0
+      ? {
+          kind: 'custom',
+          text: `⚖️ ${s.completedMatches} judgement${s.completedMatches === 1 ? '' : 's'} passed`,
+        }
+      : null,
+  (s) => (s.players > 0 ? { kind: 'watching', text: `${s.players} angels rise and fall` } : null),
+  () => ({ kind: 'listening', text: '/help' }),
+  () => ({ kind: 'custom', text: '✨ Seven Angels. One Judgement.' }),
+];

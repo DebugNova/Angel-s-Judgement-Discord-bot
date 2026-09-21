@@ -1,4 +1,4 @@
-import { ActivityType, Events, MessageFlags } from 'discord.js';
+import { Events, MessageFlags } from 'discord.js';
 import type { Client, Interaction, Message } from 'discord.js';
 import { isDomainError } from '../core/errors.js';
 import { log } from '../core/logger.js';
@@ -14,6 +14,7 @@ import { commandLimiter, rearmChallengeTimers, recoverGuild, startScheduler } fr
 import { matchChannelIds } from './managers/channels.js';
 import { startLogMirror } from './managers/notify.js';
 import { noteChannelActivity } from './managers/panel.js';
+import { startPresence } from './presence.js';
 import { errorEmbed, noPermissionEmbed } from './ui/embeds.js';
 import type { Theme } from './ui/theme.js';
 import { Brand } from './ui/lore.js';
@@ -135,10 +136,7 @@ async function onMessage(message: Message): Promise<void> {
 
 async function onReady(client: Client<true>): Promise<void> {
   log.info('BOT_READY', { user: client.user.tag, guilds: client.guilds.cache.size });
-  client.user.setPresence({
-    activities: [{ name: Brand.presence, type: ActivityType.Watching }],
-    status: 'online',
-  });
+  startPresence(client);
   await registerCommands(client, runtimeEnv().DISCORD_GUILD_ID);
   for (const guild of client.guilds.cache.values()) {
     await getConfig(guild.id);

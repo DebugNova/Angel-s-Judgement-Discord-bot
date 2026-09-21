@@ -1,6 +1,7 @@
 import type { Player, Prisma } from '@prisma/client';
 import { db } from '../../database/client.js';
 import { RANK_ORDER } from '../players/player.service.js';
+import { LIVE_STATUSES } from '../matches/match.types.js';
 
 export const LEADERBOARD_TYPES = ['elo', 'wins', 'winrate', 'streak', 'matches'] as const;
 export type LeaderboardType = (typeof LEADERBOARD_TYPES)[number];
@@ -63,4 +64,23 @@ export async function getLeaderboardPage(
 
 export async function topPlayers(guildId: string, count: number, minMatches: number): Promise<Player[]> {
   return db().player.findMany({ where: eligible(guildId, minMatches), orderBy: RANK_ORDER, take: count });
+}
+
+export interface PresenceStats {
+  liveMatches: number;
+  completedMatches: number;
+  players: number;
+  champion: Player | null;
+}
+
+/** Numbers shown in the bot's rotating status. `guildId` null = across every server. */
+export async function presenceStats(guildId: string | null, minMatches: number): Promise<PresenceStats> {
+  const scope = guildId ? { guildId } : {};
+  const [liveMatches, completedMatches, players, champion] = await Promise.all([
+    db().match.count({ where: { ...scope, status: { in: LIVE_STATUSES } } }),
+    db().match.count({ where: { ...scope, status: 'COMPLETED' } }),
+    db().player.count({ where: scope }),
+    guildId ? topPlayers(guildId, 1, minMatches).then((p) => p[0] ?? null) : Promise.resolve(null),
+  ]);
+  return { liveMatches, completedMatches, players, champion };
 }
