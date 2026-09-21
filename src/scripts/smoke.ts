@@ -24,6 +24,7 @@ import {
   createChallenge,
   expireChallenge,
 } from '../modules/challenges/challenge.service.js';
+import { calculateElo } from '../modules/elo/elo.js';
 import { getConfig, invalidateConfig, updateConfig } from '../modules/configuration/config.service.js';
 import { getLeaderboardPage } from '../modules/leaderboard/leaderboard.service.js';
 import { headToHead, playerHistory, recentForm } from '../modules/history/history.service.js';
@@ -311,9 +312,10 @@ try {
       mode: 'decide',
       config: await cfg(),
     });
+    const even = calculateElo((await cfg()).startingElo, (await cfg()).startingElo, await cfg());
     check(
-      out.elo.winnerChange === 16 && out.elo.loserChange === -16,
-      `unexpected ELO ${out.elo.winnerChange}`,
+      out.elo.winnerChange === even.winnerChange && out.elo.loserChange === even.loserChange,
+      `unexpected ELO ${out.elo.winnerChange}, expected ${even.winnerChange}`,
     );
     await afterFinalize(client, out);
     const ch = await fetchTextChannel(client, guild.id, out.match.channelId!);
@@ -352,9 +354,12 @@ try {
       actorDiscordId: P1.discordId,
       config: await cfg(),
     });
+    const c = await cfg();
+    const loserAfterMatch1 = calculateElo(c.startingElo, c.startingElo, c).loserNew;
+    const expected = calculateElo(loserAfterMatch1, 2 * c.startingElo - loserAfterMatch1, c);
     check(
-      out.elo.winnerOld === 984 && out.elo.winnerChange === 17,
-      `unexpected ELO ${out.elo.winnerOld}+${out.elo.winnerChange}`,
+      out.elo.winnerOld === expected.winnerOld && out.elo.winnerChange === expected.winnerChange,
+      `unexpected ELO ${out.elo.winnerOld}+${out.elo.winnerChange}, expected ${expected.winnerOld}+${expected.winnerChange}`,
     );
     await afterFinalize(client, out);
   });

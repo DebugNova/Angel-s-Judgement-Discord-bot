@@ -10,7 +10,7 @@ All settings are per server and take effect immediately. Every change is written
 | `/config channel history · leaderboard · staff · logs` | channel | — | Optional. `/config channel clear` unsets one. |
 | `/config roles` | referee · moderator · admin | — | Role picker; select several or none. Admin roles: owner only. |
 | `/config elo` | starting | 1000 | Applies to new players. Use `/resetstats elo` to re-baseline everyone. |
-| | kfactor | 32 | Rating swing per match |
+| | kfactor | 48 | Rating swing per match (max points one duel can move) |
 | | minimum / maximum | 0 / 5000 | Ratings are clamped |
 | `/config challenge` | timeout | 60 s | Time to accept |
 | | max_incoming | 3 | Pending challenges one player can receive |

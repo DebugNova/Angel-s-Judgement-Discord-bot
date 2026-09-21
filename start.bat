@@ -7,6 +7,7 @@ if not exist node_modules (
   call npm install || goto :error
 )
 echo Building...
+call npx prisma generate || goto :error
 call npm run build || goto :error
 node dist\index.js
 echo.

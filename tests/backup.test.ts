@@ -25,7 +25,7 @@ describe('backup & restore', () => {
     expect(match.status).toBe('COMPLETED');
     expect(match.completedAt).toBeInstanceOf(Date);
     expect(match.eloHistory).toHaveLength(2);
-    expect((await player(A)).elo).toBe(1016);
+    expect((await player(A)).elo).toBe(1024);
     expect(await db().auditLog.count()).toBe(snapshot.tables.auditLog!.length);
     expect((await db().guildConfig.findUniqueOrThrow({ where: { guildId: GUILD } })).matchCounter).toBe(1);
   });

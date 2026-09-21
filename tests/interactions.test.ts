@@ -115,12 +115,12 @@ describe('match panel buttons', () => {
     });
     await press('button', Ids.match.confirm(id), B.discordId);
     expect((await db().match.findUniqueOrThrow({ where: { id } })).status).toBe('COMPLETED');
-    expect((await player(A)).elo).toBe(1016);
+    expect((await player(A)).elo).toBe(1024);
     // A second click after completion is rejected, not re-applied.
     await expect(press('button', Ids.match.confirm(id), B.discordId)).rejects.toMatchObject({
       code: 'ALREADY_FINALIZED',
     });
-    expect((await player(A)).elo).toBe(1016);
+    expect((await player(A)).elo).toBe(1024);
   });
 
   it('dispute button escalates the match', async () => {
@@ -229,7 +229,7 @@ describe('referee buttons', () => {
         inputs: { reason: '' },
       }),
     ).rejects.toMatchObject({ code: 'ALREADY_FINALIZED' });
-    expect((await player(B)).elo).toBe(1016);
+    expect((await player(B)).elo).toBe(1024);
   });
 
   it('force-complete needs moderator; referee is refused', async () => {
@@ -275,7 +275,7 @@ describe('admin & misc components', () => {
         inputs: { phrase: 'reset seven angels' },
       }),
     ).rejects.toMatchObject({ code: 'BAD_PHRASE' });
-    expect((await player(A)).elo).toBe(1016);
+    expect((await player(A)).elo).toBe(1024);
     await press('modal', Ids.reset.modal('all', '-', false), A.discordId, PermissionLevel.ADMIN, {
       inputs: { phrase: 'RESET SEVEN ANGELS' },
     });

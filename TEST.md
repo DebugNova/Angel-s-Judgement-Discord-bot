@@ -102,12 +102,12 @@ Player A and Player B in any normal channel:
 - [ ] **Expected:** "✅ Result reported". The panel re-posts as 🏆 **RESULT PENDING**, pings B, with **Confirm Result / Dispute Result**.
 - [ ] **A** presses **Confirm Result** → "You reported this result. Waiting for @B to confirm."
 - [ ] **B** presses **Confirm Result**.
-- [ ] **Expected in #queue-001:** 🏆 **MATCH COMPLETED**. Winner A, loser B, Method "Opponent Confirmation", and ELO **A 1,000 → 1,016 (+16)**, **B 1,000 → 984 (−16)**, plus "archived in X minutes". A and B can no longer type there.
+- [ ] **Expected in #queue-001:** 🏆 **MATCH COMPLETED**. Winner A, loser B, Method "Opponent Confirmation", and ELO **A 1,000 → 1,024 (+24)**, **B 1,000 → 976 (−24)**, plus "archived in X minutes". A and B can no longer type there.
 - [ ] **Expected in #match-history:** "1v1 MATCH COMPLETE", A defeated B, +16 / −16, *no server link shown*.
 - [ ] **Expected in #leaderboard** (within ~5 s, if min_matches is 1): A #1 1,016, B #2 984, edited in place (no new message).
 - [ ] B presses **Confirm Result** again on an old panel (if one is still visible) → "already finalized" or "no longer available". **ELO does not change again.**
-- [ ] `/stats` as A → 1,016 ELO, 1 match, 1 win, 100% win rate, streak 1 Win, recent results 🟢 W.
-- [ ] `/history` as A → SA-000001 vs B, **+16 ELO**.
+- [ ] `/stats` as A → 1,024 ELO, 1 match, 1 win, 100% win rate, streak 1 Win, recent results 🟢 W.
+- [ ] `/history` as A → SA-000001 vs B, **+24 ELO**.
 - [ ] `/headtohead opponent:@B` (as A) → 1 match, A leads 1–0.
 - [ ] After the delete delay (5 or 10 min) → #queue-001 is deleted automatically.
 
