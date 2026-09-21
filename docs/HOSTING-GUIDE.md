@@ -109,12 +109,11 @@ It ends with `Resolving deltas: 100%` or similar.
 
 **2.3: Switch on auto-start.** This makes the bot start by itself whenever Shulker restarts your server.
 1. Click the **gear icon** (Settings) in the left sidebar and scroll to **STARTUP**.
-2. Select the option **"Execute a script file on start"**.
-3. In its box, type exactly:
+2. Select the option **Startup script** (its grey text says "Execute a script file on start").
+3. A **SCRIPT PATH** box appears with `/startup.sh` in it. Delete that and type exactly:
    ```
    /data/bot/scripts/host-boot.sh
    ```
-   If the box asks for a **command** rather than a file, type `sh /data/bot/scripts/host-boot.sh` instead.
 4. Click **Save**, then **Apply & restart**.
 5. Wait until the bottom-left corner shows **Running** again (about 30 seconds).
 
