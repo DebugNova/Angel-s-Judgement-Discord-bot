@@ -71,6 +71,8 @@ Almost everything on Shulker is done by pasting a command into the terminal:
 
 Tip: every command in this guide is in a grey box. Copy the **whole** box, exactly as written.
 
+> **Shulker's terminal quirk:** a line that starts with `cd` is treated specially, so `cd somewhere && command` does **not** work there. The commands in this guide avoid it. Don't add `cd` yourself.
+
 ---
 
 # First-time setup
@@ -373,7 +375,7 @@ Look for **`Bot: RUNNING`** and a **`BOT_READY`** line. Then try `/stats` in you
 | Restart the bot | `sh /data/bot/scripts/host-stop.sh && sh /data/bot/scripts/host-start.sh` |
 | Install the newest version from GitHub | `sh /data/bot/scripts/host-update.sh` |
 | List backups on the server (newest first) | `ls -lt /data/bot/backups/auto` |
-| Make a backup right now | `cd /data/bot && npm run db:backup` |
+| Make a backup right now | `npm --prefix /data/bot run db:backup` |
 | Load a backup (replaces all data) | `sh /data/bot/scripts/host-restore.sh backups/auto/FILENAME` |
 | See how much space the bot uses | `du -sh /data/*` |
 
