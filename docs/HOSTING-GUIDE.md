@@ -141,37 +141,38 @@ sh /data/bot/scripts/host-setup.sh
 
 ## Part 4: Put your token and settings in .env
 
-The `.env` file is the bot's private settings file. The setup already created it and filled in the database part. You add the Discord part.
+The `.env` file is the bot's private settings file. The setup already created it and filled in the database part. You add three Discord values with a small helper script. The file explorer hides `.env` (its name starts with a dot), so you don't edit it by hand.
 
-1. In the Shulker file explorer (left side, first icon), click the **refresh** icon. Then open **data** → **bot** → **.env**.
-2. On your PC, open the `.env` file in your bot folder with VS Code.
-3. Copy these lines **from your PC file into the Shulker file**, replacing the empty ones:
-   - `DISCORD_TOKEN=...` (the long token)
-   - `BOT_OWNER_IDS=...`
-   - `DISCORD_GUILD_ID=...` (only if it has a value on your PC)
-4. Find `BACKUP_CHANNEL_ID=` in the Shulker file and paste the channel ID from Part 1 after the `=`.
-   It should look like: `BACKUP_CHANNEL_ID=1551234567890123456`
-5. **Don't change** the lines `EMBEDDED_DB=false` and `DATABASE_URL=postgresql://...`. They must stay exactly as the setup wrote them.
-6. Save with **Ctrl + S**.
+> ⚠️ Don't use `sed -i` in Shulker's terminal: it prints the whole file, including your token, instead of editing it.
 
-> **Can't see `.env` in the explorer?** Some file browsers hide files that start with a dot. Use these commands instead. Replace the CAPITAL words with your real values, keep the `|` characters, and run one command at a time:
-> ```
-> sed -i 's|^DISCORD_TOKEN=.*|DISCORD_TOKEN=YOUR_TOKEN_HERE|' /data/bot/.env
-> ```
-> ```
-> sed -i 's|^BOT_OWNER_IDS=.*|BOT_OWNER_IDS=YOUR_DISCORD_USER_ID|' /data/bot/.env
-> ```
-> ```
-> sed -i 's|^BACKUP_CHANNEL_ID=.*|BACKUP_CHANNEL_ID=YOUR_CHANNEL_ID|' /data/bot/.env
-> ```
-> To check (this shows everything **except** the token):
-> ```
-> grep -v TOKEN /data/bot/.env | grep -v '^#' | grep .
-> ```
-> Commands you type can be remembered by the terminal, and the first one above contains your token. When you're done, erase that memory:
-> ```
-> rm -f ~/.ash_history ~/.bash_history
-> ```
+You need three things:
+- **Your bot token**: Developer Portal → your app → **Bot** → **Reset Token** → copy it. It's also in `DISCORD_TOKEN=` in your PC's `.env`.
+- **Your Discord user ID**: in Discord, right-click your own name → **Copy User ID**. It's also in `BOT_OWNER_IDS=` in your PC's `.env`.
+- **The #bot-backups channel ID** from Part 1.
+
+Paste each command into Shulker, replacing the CAPITAL word with your value:
+
+**4.1: Your user ID:**
+```
+sh /data/bot/scripts/host-env.sh BOT_OWNER_IDS YOUR_USER_ID
+```
+
+**4.2: The backup channel:**
+```
+sh /data/bot/scripts/host-env.sh BACKUP_CHANNEL_ID YOUR_CHANNEL_ID
+```
+
+**4.3: The token.** Never screenshot or share this command or what the terminal shows around it:
+```
+sh /data/bot/scripts/host-env.sh DISCORD_TOKEN YOUR_TOKEN
+```
+It answers `DISCORD_TOKEN: set (72 characters, hidden)` and clears the terminal's history by itself.
+
+**4.4: Check** (safe to screenshot; nothing secret is shown):
+```
+sh /data/bot/scripts/host-env.sh check
+```
+You want `DISCORD_TOKEN: set (...)`, your user ID, your channel ID, `EMBEDDED_DB: false` and `DATABASE_URL: set (...)`.
 
 ## Part 5: Move your data from your PC to Shulker
 
