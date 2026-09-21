@@ -298,7 +298,7 @@ Your PC's `.env` still has the **real** token. If you ever double-clicked `start
 ```
 npm run smoke
 ```
-The first line should say `Smoke test in "AJ Test" as Angel's Judgement Test...`, and it should end with **`🎉 ALL 17/17 smoke steps passed.`** It cleans up after itself.
+Near the top it should say `Smoke test in "AJ Test" as Angel's Judgement Test...`, and it should end with **`🎉 ALL 17/17 smoke steps passed.`** It cleans up after itself.
 
 Your PC is now safe:
 - `start.bat` runs the **test** bot in **AJ Test**, and can't touch the real bot or your clan's data.
@@ -426,11 +426,15 @@ Your data is safe in **#bot-backups**. Run the real bot from your PC until Shulk
 5. Double-click **`start.bat`**. It warns that this is the real bot. Press **Y**.
 6. Keep that window open. The bot runs as long as your PC is on and awake.
 
-**When Shulker works again**, move back:
-1. **Close** the `start.bat` window on your PC.
-2. In VS Code: `npm run db:backup`. This saves everything that happened while the PC was in charge.
-3. Upload that new file to Shulker and load it (Part 5, steps 5.2 to 5.4).
-4. Double-click **`use-test-bot.bat`** on your PC.
+**When Shulker works again**, move back. Be quick: when Shulker comes back, it starts the real bot **by itself**, so for a moment both copies run.
+1. In the **Shulker** terminal, stop its bot first:
+   ```
+   sh /data/bot/scripts/host-stop.sh
+   ```
+2. **Close** the `start.bat` window on your PC.
+3. In VS Code: `npm run db:backup`. This saves everything that happened while the PC was in charge.
+4. Upload that new file to Shulker and load it (Part 5, steps 5.2 to 5.4). The restore starts the Shulker bot again.
+5. Double-click **`use-test-bot.bat`** on your PC.
 
 ### The real bot is running in two places (a clash)
 Signs: buttons say "interaction failed", or you get two replies to one command. This happens when the real bot runs on Shulker **and** your PC at the same time.

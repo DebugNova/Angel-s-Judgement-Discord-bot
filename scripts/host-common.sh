@@ -45,7 +45,8 @@ ensure_packages() {
   install_packages && find_pg_bin
 }
 
-as_postgres() { su postgres -s /bin/sh -c "$*"; }
+# Options go before the user name: BusyBox su (Alpine) stops reading options at the user name.
+as_postgres() { su -s /bin/sh -c "$*" postgres; }
 
 pg_running() { pgrep -x postgres >/dev/null 2>&1; }
 
@@ -77,7 +78,7 @@ boot_running() {
   [ -f .boot.pid ] || return 1
   pid=$(cat .boot.pid)
   [ -n "$pid" ] && [ "$pid" != "$$" ] && [ -r "/proc/$pid/cmdline" ] &&
-    tr '\0' ' ' <"/proc/$pid/cmdline" | grep -q host-boot
+    grep -q host-boot "/proc/$pid/cmdline" 2>/dev/null
 }
 
 bot_running() { pgrep -f "$BOT_CMD" >/dev/null 2>&1; }
