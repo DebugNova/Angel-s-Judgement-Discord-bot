@@ -14,6 +14,13 @@ const optionalString = z
   .optional()
   .transform((v) => (v && v.trim().length > 0 ? v.trim() : undefined));
 
+/** Whole number from the environment; blank or missing = `fallback`. */
+const int = (fallback: number, min: number, max: number) =>
+  z.preprocess(
+    (v) => (typeof v === 'string' && v.trim() === '' ? undefined : v),
+    z.coerce.number().int().min(min).max(max).default(fallback),
+  );
+
 const schema = z
   .object({
     DISCORD_TOKEN: z.string().trim().min(50, 'DISCORD_TOKEN is missing or invalid'),
@@ -22,10 +29,18 @@ const schema = z
     BOT_OWNER_IDS: optionalString,
     EMBEDDED_DB: bool,
     EMBEDDED_DB_DIR: optionalString,
-    EMBEDDED_DB_PORT: z.coerce.number().int().min(1024).max(65535).default(54321),
+    EMBEDDED_DB_PORT: int(54321, 1024, 65535),
     DATABASE_URL: optionalString,
     NODE_ENV: z.enum(['development', 'staging', 'production', 'test']).default('development'),
     LOG_LEVEL: z.enum(['debug', 'info', 'warn', 'error']).default('info'),
+    BACKUP_CHANNEL_ID: optionalString.pipe(
+      z
+        .string()
+        .regex(/^\d{17,20}$/, 'must be a channel ID (numbers only)')
+        .optional(),
+    ),
+    BACKUP_INTERVAL_MINUTES: int(60, 0, 10_080),
+    BACKUP_KEEP: int(48, 1, 1000),
   })
   .superRefine((env, ctx) => {
     if (!env.EMBEDDED_DB && !env.DATABASE_URL) {

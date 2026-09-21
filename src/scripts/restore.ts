@@ -1,12 +1,9 @@
 /**
  * Restores a JSON backup made by `npm run db:backup`. REPLACES all current data.
  * Stop the bot first, then run:
- *   npm run db:restore -- backups/satan-<timestamp>.json --yes
+ *   npm run db:restore -- backups/satan-<timestamp>.json.gz --yes   (plain .json works too)
  */
-import { readFileSync } from 'node:fs';
-import { resolve } from 'node:path';
-import { importAll } from '../database/backup.js';
-import type { BackupFile } from '../database/backup.js';
+import { describeBackup, exportAll, importAll, readBackupFile, writeBackupFile } from '../database/backup.js';
 import { disconnectDb } from '../database/client.js';
 import { runMigrations } from '../database/migrate.js';
 import { connectForScript } from './db-connect.js';
@@ -19,12 +16,16 @@ if (!file || !process.argv.includes('--yes')) {
   process.exit(1);
 }
 
-const backup = JSON.parse(readFileSync(resolve(file), 'utf8')) as BackupFile;
+const backup = readBackupFile(file);
 const embedded = await connectForScript();
 try {
   await runMigrations(process.env.DATABASE_URL ?? '');
+  // Safety net: whatever is in the database right now is saved before it gets replaced.
+  const current = await exportAll();
+  const saved = writeBackupFile('backups/before-restore', current);
+  console.log(`• Current data saved first to ${saved}`);
   await importAll(backup);
-  console.log(`✓ Restored ${file}`);
+  console.log(`✓ Restored ${file}\n  ${describeBackup(backup)}`);
 } finally {
   await disconnectDb();
   await embedded?.stop();

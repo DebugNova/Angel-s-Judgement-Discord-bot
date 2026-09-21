@@ -15,7 +15,11 @@ import { ChannelType, Client, GatewayIntentBits, OverwriteType, PermissionFlagsB
 import type { CategoryChannel, Guild, GuildMember, TextChannel } from 'discord.js';
 import { loadEnv } from '../config/env.js';
 import { enableFileLogging, log, setLogLevel } from '../core/logger.js';
-import { exportAll, importAll } from '../database/backup.js';
+import { exportAll, importAll, readBackupFile } from '../database/backup.js';
+import { runAutoBackup } from '../discord/backups.js';
+import { rmSync } from 'node:fs';
+import { basename } from 'node:path';
+import { gunzipSync } from 'node:zlib';
 import { db, disconnectDb } from '../database/client.js';
 import { runMigrations } from '../database/migrate.js';
 import {
@@ -528,6 +532,29 @@ try {
     const logs = await fetchTextChannel(client, guild.id, (await cfg()).logChannelId!);
     const msgs = await logs!.messages.fetch({ limit: 20 });
     check(msgs.size > 5, `only ${msgs.size} log messages`);
+  });
+
+  await step('Automatic backup is saved, uploaded to the backup channel and can be read back', async () => {
+    const logs = await fetchTextChannel(client, guild.id, (await cfg()).logChannelId!);
+    setRuntimeEnv({ ...env, BACKUP_CHANNEL_ID: logs!.id });
+    try {
+      const file = await runAutoBackup(client, true);
+      check(file !== null, 'no backup written');
+      const restored = readBackupFile(file!);
+      check((restored.tables.match?.length ?? 0) > 0, 'backup has no matches');
+      rmSync(file!, { force: true });
+      const last = (await logs!.messages.fetch({ limit: 1 })).first();
+      const att = last?.attachments.first();
+      check(att?.name === basename(file!), 'backup file not posted to the channel');
+      const downloaded = Buffer.from(await (await fetch(att!.url)).arrayBuffer());
+      const fromDiscord = JSON.parse(gunzipSync(downloaded).toString('utf8')) as typeof restored;
+      check(
+        JSON.stringify(fromDiscord) === JSON.stringify(restored),
+        'backup downloaded from Discord differs from the saved file',
+      );
+    } finally {
+      setRuntimeEnv(env);
+    }
   });
 } finally {
   console.log('\n🧹 Cleaning up…');

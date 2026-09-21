@@ -208,6 +208,9 @@ Permission levels: **Owner** (server owner or `BOT_OWNER_IDS`) > **Admin** (Disc
 | `DATABASE_URL` | when `EMBEDDED_DB=false` | e.g. `postgresql://user:pass@host:5432/satan` |
 | `NODE_ENV` | | `development` · `staging` · `production` |
 | `LOG_LEVEL` | | `debug` · `info` · `warn` · `error` |
+| `BACKUP_INTERVAL_MINUTES` | | Automatic backup check interval, default `60`; `0` = off |
+| `BACKUP_KEEP` | | Automatic backups kept in `backups/auto/`, default `48` |
+| `BACKUP_CHANNEL_ID` | | Private (owner-only) channel that receives every automatic backup |
 
 `.env` is git-ignored and must never be committed.
 
@@ -217,12 +220,13 @@ Permission levels: **Owner** (server owner or `BOT_OWNER_IDS`) > **Admin** (Disc
 
 - **Schema:** [`prisma/schema.prisma`](prisma/schema.prisma). Main models: GuildConfig, Player, Challenge, Match, MatchParticipant, MatchResult, EloHistory, Evidence, MatchNote, Season, Cooldown and AuditLog.
 - **Migrations** run automatically on every start (`prisma migrate deploy`). You can also run `npm run db:migrate` by hand.
-- **Backup:** `npm run db:backup` writes `backups/satan-<timestamp>.json`, a full export of every table. It works with the bundled database and with any PostgreSQL.
-- **Restore:** stop the bot, then run `npm run db:restore -- backups/<file>.json --yes`. This **replaces** all current data.
+- **Backup:** `npm run db:backup` writes `backups/satan-<timestamp>.json.gz`, a full export of every table, and prints the row counts. It works with the bundled database and with any PostgreSQL.
+- **Restore:** stop the bot, then run `npm run db:restore -- backups/<file>.json.gz --yes` (old plain `.json` backups work too). This **replaces** all current data. The data that was there is saved to `backups/before-restore/` first.
+- **Automatic backups:** while running, the bot saves a backup to `backups/auto/` every `BACKUP_INTERVAL_MINUTES` (default 60) *when something changed*, keeping the newest `BACKUP_KEEP` (default 48). With `BACKUP_CHANNEL_ID` set, each one is also posted to that Discord channel, so a copy survives even if the host is wiped. **Make that channel visible to the owner only**, because backups contain private server links and evidence.
 - On a VPS with Docker you can also use native tools: `docker compose exec postgres pg_dump -U satan satan > backup.sql`.
 - **Supabase** (free tier) works as a remote database: set `EMBEDDED_DB=false` and `DATABASE_URL` to its connection string (use the *session* pooler or direct connection, port 5432).
 
-Tip: schedule `npm run db:backup` daily (Windows Task Scheduler or cron) and copy the `backups` folder somewhere safe.
+Daily log files in `logs/` are deleted after 30 days.
 
 ---
 
@@ -246,6 +250,24 @@ npm ci && npm run build
 npm i -g pm2
 pm2 start ecosystem.config.cjs && pm2 save && pm2 startup
 ```
+
+**Linux container host (e.g. Shulker, any `node:20-alpine` or Debian box, running as root)**: the bot runs next to its own PostgreSQL, both kept on a volume mounted at `/data`:
+
+```sh
+apk add git        # Debian/Ubuntu: apt-get install -y git
+git clone https://github.com/DebugNova/Angel-s-Judgement-Discord-bot.git /data/bot
+sh /data/bot/scripts/host-setup.sh          # installs PostgreSQL, builds, creates .env with DB settings
+# fill in DISCORD_TOKEN, BOT_OWNER_IDS, BACKUP_CHANNEL_ID in /data/bot/.env
+# set the host's startup script to /data/bot/scripts/host-boot.sh (or run host-start.sh)
+```
+
+| Script (`/data/bot/scripts/…`) | Does |
+| --- | --- |
+| `host-boot.sh` | Startup script: reinstalls system packages if missing, starts PostgreSQL, runs the bot and restarts it if it exits |
+| `host-start.sh` / `host-stop.sh` | Start or resume / stop the bot (stays stopped until started) |
+| `host-logs.sh` | Status of the bot and database plus the latest log lines |
+| `host-update.sh` | Backup → `git pull` → build → restart |
+| `host-restore.sh <file>` | Replace all data with a backup, then restart |
 
 **Laptop, always on:** run `start.bat` at login (Task Scheduler → *At log on* → `start.bat`).
 

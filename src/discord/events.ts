@@ -15,6 +15,7 @@ import { matchChannelIds } from './managers/channels.js';
 import { startLogMirror } from './managers/notify.js';
 import { noteChannelActivity } from './managers/panel.js';
 import { startPresence } from './presence.js';
+import { startAutoBackups } from './backups.js';
 import { errorEmbed, noPermissionEmbed } from './ui/embeds.js';
 import type { Theme } from './ui/theme.js';
 import { Brand } from './ui/lore.js';
@@ -146,6 +147,7 @@ async function onReady(client: Client<true>): Promise<void> {
   }
   await rearmChallengeTimers(client);
   startScheduler(client);
+  startAutoBackups(client);
   if (client.guilds.cache.size === 0) {
     log.warn('NO_GUILDS', {
       invite: `https://discord.com/oauth2/authorize?client_id=${client.user.id}&permissions=268561488&scope=bot%20applications.commands`,

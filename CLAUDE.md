@@ -46,7 +46,8 @@ Node 20.11+ (dev machine runs 24) · TypeScript **5.9** strict, ESM (`"type": "m
 ## Gotchas
 - The bot must run as **one instance**. Before `npm run smoke` or `db:restore`, make sure it's stopped (`smoke` refuses if it detects the bot's DB in use).
 - The embedded DB lives in `%LOCALAPPDATA%\SatanBot\postgres` (never inside OneDrive). A force-closed run leaves a hung orphan that `embedded.ts` detects and replaces on the next start.
-- Logs: console + `logs/bot-YYYY-MM-DD.log` (UTC). Tests log at `error` level only.
+- Logs: console + `logs/bot-YYYY-MM-DD.log` (UTC, 30 days kept). Tests log at `error` level only.
+- Production runs on a Shulker container (`node:20-alpine`, 512 MB, root) at `/data/bot` with its own PostgreSQL in `/data/postgres`, driven by `scripts/host-*.sh` (README §9). The bot auto-backs up to `backups/auto/` and to `BACKUP_CHANNEL_ID`. Only one instance: stop the PC copy while Shulker runs.
 - `.env` holds the real bot token. Never print it, commit it or send it anywhere except Discord.
 - Git: commit each fix/feature with a clear message so it can be rolled back (`git log`, `git revert`).
 - After any change: `npm run check` → (Discord layer changed?) `npm run smoke` → tell the user to restart `start.bat`.

@@ -1,3 +1,6 @@
+import { mkdirSync, readFileSync, readdirSync, rmSync, writeFileSync } from 'node:fs';
+import { join, resolve } from 'node:path';
+import { gunzipSync, gzipSync } from 'node:zlib';
 import { db } from './client.js';
 
 export const BACKUP_VERSION = 1;
@@ -59,4 +62,47 @@ export async function importAll(backup: BackupFile): Promise<void> {
     },
     { timeout: 300_000 },
   );
+}
+
+/** "player=12 match=40 …" — row counts, to compare a backup with a restore at a glance. */
+export function describeBackup(backup: BackupFile): string {
+  return Object.entries(backup.tables)
+    .map(([k, v]) => `${k}=${v.length}`)
+    .join(' ');
+}
+
+export function serializeBackup(backup: BackupFile): Buffer {
+  return gzipSync(JSON.stringify(backup));
+}
+
+/** Writes `<dir>/satan-<timestamp>.json.gz` and returns its full path. */
+export function writeBackupFile(dir: string, backup: BackupFile): string {
+  mkdirSync(dir, { recursive: true });
+  const file = resolve(dir, `satan-${backup.createdAt.replace(/[:.]/g, '-')}.json.gz`);
+  writeFileSync(file, serializeBackup(backup));
+  return file;
+}
+
+/** Reads a backup made by any version of the tools: plain `.json` or gzipped `.json.gz`. */
+export function readBackupFile(file: string): BackupFile {
+  const raw = readFileSync(resolve(file));
+  const text = raw[0] === 0x1f && raw[1] === 0x8b ? gunzipSync(raw).toString('utf8') : raw.toString('utf8');
+  const backup = JSON.parse(text) as BackupFile;
+  if (typeof backup !== 'object' || backup === null || typeof backup.tables !== 'object') {
+    throw new Error(`${file} is not a backup file`);
+  }
+  return backup;
+}
+
+/** Deletes the oldest `satan-*` backups in `dir`, keeping the newest `keep`. Returns how many were removed. */
+export function pruneBackups(dir: string, keep: number): number {
+  let names: string[];
+  try {
+    names = readdirSync(dir).filter((n) => n.startsWith('satan-') && /\.json(\.gz)?$/.test(n));
+  } catch {
+    return 0;
+  }
+  const old = names.sort().reverse().slice(Math.max(keep, 1));
+  for (const n of old) rmSync(join(dir, n), { force: true });
+  return old.length;
 }

@@ -9,3 +9,5 @@ backups/
 *.log
 logs/
 .bot.pid
+.boot.pid
+.paused

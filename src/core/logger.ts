@@ -1,4 +1,4 @@
-import { appendFileSync, mkdirSync } from 'node:fs';
+import { appendFileSync, mkdirSync, readdirSync, rmSync } from 'node:fs';
 import { join } from 'node:path';
 
 type Level = 'debug' | 'info' | 'warn' | 'error';
@@ -7,21 +7,36 @@ type Fields = Record<string, string | number | boolean | null | undefined>;
 const ORDER: Record<Level, number> = { debug: 10, info: 20, warn: 30, error: 40 };
 let threshold: Level = 'info';
 let logDir: string | null = null;
+let logDay = '';
+const KEEP_LOG_DAYS = 30;
 
 export function setLogLevel(level: Level): void {
   threshold = level;
 }
 
-/** Also append every line to `<dir>/bot-YYYY-MM-DD.log` (one file per UTC day). */
+/** Also append every line to `<dir>/bot-YYYY-MM-DD.log` (one file per UTC day, last 30 days kept). */
 export function enableFileLogging(dir: string): void {
   mkdirSync(dir, { recursive: true });
   logDir = dir;
 }
 
+/** Deletes daily log files older than `keepDays` (the file names sort by date). */
+export function pruneLogs(dir: string, keepDays: number, today = new Date()): void {
+  const cutoff = `bot-${new Date(today.getTime() - keepDays * 86_400_000).toISOString().slice(0, 10)}.log`;
+  for (const name of readdirSync(dir)) {
+    if (/^bot-\d{4}-\d{2}-\d{2}\.log$/.test(name) && name < cutoff) rmSync(join(dir, name), { force: true });
+  }
+}
+
 function toFile(text: string): void {
   if (!logDir) return;
   try {
-    appendFileSync(join(logDir, `bot-${new Date().toISOString().slice(0, 10)}.log`), `${text}\n`);
+    const day = new Date().toISOString().slice(0, 10);
+    if (day !== logDay) {
+      logDay = day;
+      pruneLogs(logDir, KEEP_LOG_DAYS);
+    }
+    appendFileSync(join(logDir, `bot-${day}.log`), `${text}\n`);
   } catch {
     // Never let logging break the bot.
   }

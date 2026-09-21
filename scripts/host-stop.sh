@@ -1,10 +1,18 @@
 #!/bin/sh
-# Stops the bot started by host-start.sh (PostgreSQL keeps running).
-cd "$(dirname "$0")/.."
-if [ -f .bot.pid ]; then
-  kill "$(cat .bot.pid)" 2>/dev/null
-  rm -f .bot.pid
+# Stops the bot (the database keeps running) and keeps it stopped until host-start.sh.
+#   sh /data/bot/scripts/host-stop.sh
+. "$(dirname "$0")/host-common.sh"
+
+touch .paused
+if bot_running; then
+  pkill -TERM -f "$BOT_CMD"
+  i=0
+  while bot_running && [ $i -lt 30 ]; do
+    sleep 1
+    i=$((i + 1))
+  done
+  if bot_running; then
+    pkill -KILL -f "$BOT_CMD"
+  fi
 fi
-pkill -f "node dist/index.js" 2>/dev/null
-sleep 2
-echo "Bot stopped."
+echo "Bot stopped. Start it again with: sh $BOT_DIR/scripts/host-start.sh"
