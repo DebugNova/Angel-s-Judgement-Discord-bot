@@ -48,7 +48,15 @@ ensure_packages() {
 # Options go before the user name: BusyBox su (Alpine) stops reading options at the user name.
 as_postgres() { su -s /bin/sh -c "$*" postgres; }
 
-pg_running() { pgrep -x postgres >/dev/null 2>&1; }
+# Process checks read /proc directly: pgrep/pkill are missing or behave differently across Linux
+# images (on Shulker's Alpine image they did not see the running database).
+
+# True if the PostgreSQL server that owns $PGDATA is running: the PID in its lock file must be alive
+# and actually be a postgres process (after a restart an old PID can belong to something else).
+pg_running() {
+  pid=$(head -n 1 "$PGDATA/postmaster.pid" 2>/dev/null)
+  [ -n "$pid" ] && [ -r "/proc/$pid/comm" ] && [ "$(cat "/proc/$pid/comm" 2>/dev/null)" = postgres ]
+}
 
 start_pg() {
   if pg_running; then
@@ -58,8 +66,8 @@ start_pg() {
   chown postgres:postgres /run/postgresql
   chown -R postgres:postgres "$PGDATA"
   touch "$PGLOG" && chown postgres:postgres "$PGLOG"
-  # No postgres process exists, so a leftover lock file is from an unclean stop. After a container
-  # restart its PID may belong to an unrelated process, which would block startup; remove it.
+  # pg_running said no, so a leftover lock file is from an unclean stop (its PID is dead or now
+  # belongs to an unrelated process, which would block startup): remove it.
   rm -f "$PGDATA/postmaster.pid"
   say "Starting PostgreSQL"
   as_postgres "'$PG_BIN/pg_ctl' -D '$PGDATA' -l '$PGLOG' -w -t 120 start"
@@ -81,4 +89,23 @@ boot_running() {
     grep -q host-boot "/proc/$pid/cmdline" 2>/dev/null
 }
 
-bot_running() { pgrep -f "$BOT_CMD" >/dev/null 2>&1; }
+# PIDs of running bot processes: "node dist/index.js" started inside this bot folder. Checking the
+# working folder too means other Node programs that happen to use dist/index.js are never touched.
+bot_pids() {
+  for f in /proc/[0-9]*/cmdline; do
+    grep -q 'dist/index\.js' "$f" 2>/dev/null || continue
+    grep -q node "$f" 2>/dev/null || continue
+    d=${f%/cmdline}
+    [ "$(readlink "$d/cwd" 2>/dev/null)" = "$BOT_DIR" ] || continue
+    echo "${d#/proc/}"
+  done
+}
+
+bot_running() { [ -n "$(bot_pids)" ]; }
+
+# Sends a signal (TERM by default) to every bot process.
+signal_bot() {
+  for pid in $(bot_pids); do
+    kill "-${1:-TERM}" "$pid" 2>/dev/null
+  done
+}
