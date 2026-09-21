@@ -3,7 +3,7 @@ rem Double-click: this PC will run the REAL bot (settings from .env.production).
 rem Only for emergencies, when the bot on Shulker is dead. Never run both at once.
 cd /d "%~dp0"
 if not exist .env.production (
-  echo .env.production does not exist yet. See docs\HOSTING-GUIDE.md, Part 8.
+  echo .env.production does not exist yet. See docs\HOSTING-GUIDE.md, section 7.
   pause
   exit /b 1
 )
