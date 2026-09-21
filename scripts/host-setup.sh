@@ -6,6 +6,9 @@
 set -e
 . "$(dirname "$0")/host-common.sh"
 
+# Keep the bot from starting halfway through setup; host-start.sh / host-restore.sh start it later.
+touch .paused
+
 say "Step 1 of 4: installing system packages (git, openssl, PostgreSQL)"
 install_packages
 find_pg_bin || {
@@ -71,6 +74,7 @@ EOF
   say "Created .env with the database settings"
 fi
 
+touch .setup-done
 echo ""
-echo "Setup finished."
+echo "Setup finished. The bot is not running yet."
 echo "Next: open $BOT_DIR/.env and fill in DISCORD_TOKEN, BOT_OWNER_IDS and BACKUP_CHANNEL_ID."

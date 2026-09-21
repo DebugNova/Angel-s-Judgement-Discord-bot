@@ -253,19 +253,21 @@ npm i -g pm2
 pm2 start ecosystem.config.cjs && pm2 save && pm2 startup
 ```
 
-**Linux container host (e.g. Shulker, any `node:20-alpine` or Debian box, running as root)**: the bot runs next to its own PostgreSQL, both kept on a volume mounted at `/data`:
+**Linux container host (e.g. Shulker, any `node:20-alpine` or Debian box, running as root)**: the bot runs next to its own PostgreSQL, both kept under `/data` (`/data/bot`, `/data/postgres`). A storage volume mounted at `/data` is optional: without one, files survive restarts but not a container reinstall, and you rebuild from the Discord backup. Full walkthrough: [docs/HOSTING-GUIDE.md](docs/HOSTING-GUIDE.md).
 
 ```sh
 apk add git        # Debian/Ubuntu: apt-get install -y git
 git clone https://github.com/DebugNova/Angel-s-Judgement-Discord-bot.git /data/bot
+# set the host's startup script to /data/bot/scripts/host-boot.sh (it waits until setup is done)
 sh /data/bot/scripts/host-setup.sh          # installs PostgreSQL, builds, creates .env with DB settings
 # fill in DISCORD_TOKEN, BOT_OWNER_IDS, BACKUP_CHANNEL_ID in /data/bot/.env
-# set the host's startup script to /data/bot/scripts/host-boot.sh (or run host-start.sh)
+sh /data/bot/scripts/host-start.sh          # or host-restore.sh <backup> to bring data over
 ```
 
 | Script (`/data/bot/scripts/…`) | Does |
 | --- | --- |
-| `host-boot.sh` | Startup script: reinstalls system packages if missing, starts PostgreSQL, runs the bot and restarts it if it exits |
+| `host-boot.sh` | Startup script: waits for setup, reinstalls system packages if missing, starts PostgreSQL, runs the bot and restarts it if it exits |
+| `host-setup.sh` | One-time install; leaves the bot stopped until `host-start.sh` or `host-restore.sh` |
 | `host-start.sh` / `host-stop.sh` | Start or resume / stop the bot (stays stopped until started) |
 | `host-logs.sh` | Status of the bot and database plus the latest log lines |
 | `host-update.sh` | Backup → `git pull` → build → restart |

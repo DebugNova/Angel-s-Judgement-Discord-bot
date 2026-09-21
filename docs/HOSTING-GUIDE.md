@@ -9,12 +9,12 @@ How to run the bot 24/7 on Shulker, how to test changes safely, how to update it
 - [The big picture (read this first)](#the-big-picture-read-this-first)
 - **First-time setup**
   - [Part 1: Make a private backup channel in Discord](#part-1-make-a-private-backup-channel-in-discord)
-  - [Part 2: Add a storage volume on Shulker](#part-2-add-a-storage-volume-on-shulker)
-  - [Part 3: Take a final backup on your PC](#part-3-take-a-final-backup-on-your-pc)
-  - [Part 4: Install the bot on Shulker](#part-4-install-the-bot-on-shulker)
-  - [Part 5: Move your data to Shulker](#part-5-move-your-data-to-shulker)
-  - [Part 6: Make the bot start by itself](#part-6-make-the-bot-start-by-itself)
-  - [Part 7: Check that everything works](#part-7-check-that-everything-works)
+  - [Part 2: Download the bot and switch on auto-start](#part-2-download-the-bot-and-switch-on-auto-start)
+  - [Part 3: Run the setup](#part-3-run-the-setup)
+  - [Part 4: Put your token and settings in .env](#part-4-put-your-token-and-settings-in-env)
+  - [Part 5: Move your data from your PC to Shulker](#part-5-move-your-data-from-your-pc-to-shulker)
+  - [Part 6: Check that the bot runs](#part-6-check-that-the-bot-runs)
+  - [Part 7: Final check in Discord](#part-7-final-check-in-discord)
   - [Part 8: Turn your PC into a safe test machine](#part-8-turn-your-pc-into-a-safe-test-machine)
 - **Everyday life**
   - [Part 9: Changing the bot (test, then update Shulker)](#part-9-changing-the-bot-test-then-update-shulker)
@@ -39,11 +39,15 @@ There are **two bots** and **three places**:
 | **Your PC** | The **TEST** bot, "Angel's Judgement Test", in a private test server | Where you try changes before members see them |
 | **GitHub** | The bot's code, no data and no tokens | How new versions travel from your PC to Shulker |
 
-And your data (players, ELO, matches) is protected in **three places**:
+On Shulker, everything lives in one folder, **`/data`**: the bot in `/data/bot` and its database in `/data/postgres`.
 
-1. The database on Shulker's storage volume.
+Your data (players, ELO, matches) is kept in **three places**:
+
+1. The database on Shulker.
 2. Backup files on Shulker (one every hour, when something changed).
 3. The same backup files posted in a **private Discord channel**. These survive even if Shulker disappears completely.
+
+> **About storage volumes:** Shulker offers "volumes" for $0.50/month. You don't need one. Without a volume, your files survive normal restarts of the server but **not "Reinstall container"**. If that ever happens, you set up again from the newest Discord backup (Part 11 explains how), so the most you could lose is about one hour of changes.
 
 The flow of a change looks like this:
 
@@ -85,70 +89,56 @@ The bot posts a backup file here every hour when something changes. These files 
    - Right-click **#bot-backups** → **Copy Channel ID**.
    - Paste it into Notepad. It's a long number like `1551234567890123456`. You need it in Part 4.
 
-## Part 2: Add a storage volume on Shulker
+## Part 2: Download the bot and switch on auto-start
 
-A **volume** is a storage drive that survives everything, even when Shulker "reinstalls" your server. The bot and its database will live on it. It costs **$0.50/month**.
-
-1. On shulker.in, open your server and click the **gear icon** (Settings) in the left sidebar.
-2. Scroll down to **VOLUMES**.
-3. In the first box (`my-data`), type: `bot-data`
-4. In the second box (`Mount path`), type: `/data`
-5. Click **+ Add Volume**. If it asks to restart the server, say **yes** and wait until it shows **Running** again.
-6. Check it worked. In the terminal, paste:
-   ```
-   ls -la /data
-   ```
-   You should see a short list with no error. If you see `No such file or directory`, the volume wasn't added. Try again, or ask Claude.
-
-## Part 3: Take a final backup on your PC
-
-This copies all your current players and matches into one file, so nothing is lost when moving.
-
-1. If the bot is running on your PC, **close its black `start.bat` window**. From now on the real bot runs on Shulker, not your PC.
-2. Open the bot folder in **VS Code**.
-3. Open the terminal in VS Code: menu **Terminal → New Terminal**, or **Ctrl + `**.
-4. Paste and press Enter:
-   ```
-   npm run build
-   ```
-5. Then paste and press Enter:
-   ```
-   npm run db:backup
-   ```
-6. It prints something like:
-   ```
-   ✓ Backup written to C:\Users\...\Satan\backups\satan-2026-09-22T10-00-00-000Z.json.gz
-     guildConfig=1 player=4 season=0 challenge=1 match=0 ... auditLog=31
-   ```
-7. **Take a screenshot of this.** The numbers (`player=4`, `auditLog=31` and so on) prove later that nothing was lost.
-8. The file is in your bot folder, inside **backups**. You'll upload it in Part 5.
-
-## Part 4: Install the bot on Shulker
+This part also checks something important: that Shulker **keeps your files when it restarts**. We check it now, while nothing important is on the server yet.
 
 Paste each command into the **Shulker** terminal, one at a time, and wait for each one to finish.
 
-**4.1: Install git** (the tool that downloads the bot from GitHub):
+**2.1: Install git** (the tool that downloads the bot from GitHub):
 ```
 apk add git
 ```
 It finishes with a line like `OK: ... MiB in ... packages`.
 
-**4.2: Download the bot onto the volume:**
+**2.2: Download the bot:**
 ```
-git clone https://github.com/DebugNova/Angel-s-Judgement-Discord-bot.git /data/bot
+mkdir -p /data && git clone https://github.com/DebugNova/Angel-s-Judgement-Discord-bot.git /data/bot
 ```
 It ends with `Resolving deltas: 100%` or similar.
 
-**4.3: Run the setup.** This installs the database, installs the bot's parts and builds it:
+**2.3: Switch on auto-start.** This makes the bot start by itself whenever Shulker restarts your server.
+1. Click the **gear icon** (Settings) in the left sidebar and scroll to **STARTUP**.
+2. Select the option **"Execute a script file on start"**.
+3. In its box, type exactly:
+   ```
+   /data/bot/scripts/host-boot.sh
+   ```
+   If the box asks for a **command** rather than a file, type `sh /data/bot/scripts/host-boot.sh` instead.
+4. Click **Save**, then **Apply & restart**.
+5. Wait until the bottom-left corner shows **Running** again (about 30 seconds).
+
+**2.4: Check that the files survived the restart.** Open the terminal again. If it's disconnected, click **+ New** on the right of the terminal. Paste:
+```
+ls /data/bot/scripts/host-boot.sh
+```
+- ✅ It prints `/data/bot/scripts/host-boot.sh` → Shulker keeps your files. **Continue to Part 3.**
+- ❌ It prints `No such file or directory` → Shulker wiped the server when it restarted. **Stop here and tell Claude.** Your data is still safe on your PC; nothing has been moved yet. You'd need the $0.50 volume, and Claude will adjust the steps.
+
+> The auto-start script now waits quietly in the background until Part 3 is done. That's expected.
+
+## Part 3: Run the setup
+
+This installs the database, installs the bot's parts and builds it:
 ```
 sh /data/bot/scripts/host-setup.sh
 ```
 - This takes **2 to 5 minutes**. It may look stuck on "installing the bot's packages". That's normal. Don't close the tab.
 - You'll see `Step 1 of 4` up to `Step 4 of 4`.
-- It must end with **`Setup finished.`**
+- It must end with **`Setup finished. The bot is not running yet.`**
 - If it ends with red errors instead, **stop** and send Claude a screenshot.
 
-**4.4: Put your bot's token and settings in the `.env` file.**
+## Part 4: Put your token and settings in .env
 
 The `.env` file is the bot's private settings file. The setup already created it and filled in the database part. You add the Discord part.
 
@@ -182,57 +172,72 @@ The `.env` file is the bot's private settings file. The setup already created it
 > rm -f ~/.ash_history ~/.bash_history
 > ```
 
-## Part 5: Move your data to Shulker
+## Part 5: Move your data from your PC to Shulker
 
-Skip this part if you want to start with empty stats. If you skip it, run `sh /data/bot/scripts/host-start.sh` instead and go to Part 6.
+Want to start with empty stats instead? Skip to the box at the end of this part.
 
-**5.1: Make a folder for the backup:**
+**5.1: Take the final backup on your PC.**
+1. If the bot is running on your PC, **close its black `start.bat` window**. From now on the real bot runs on Shulker, not your PC.
+2. Open the bot folder in **VS Code**, and open the terminal: menu **Terminal → New Terminal**, or **Ctrl + `**.
+3. Paste and press Enter:
+   ```
+   npm run build
+   ```
+4. Then paste and press Enter:
+   ```
+   npm run db:backup
+   ```
+5. It prints something like:
+   ```
+   ✓ Backup written to C:\Users\...\Satan\backups\satan-2026-09-22T10-00-00-000Z.json.gz
+     guildConfig=1 player=4 season=0 challenge=1 match=0 ... auditLog=31
+   ```
+6. **Take a screenshot of this.** The numbers (`player=4`, `auditLog=31` and so on) prove in step 5.4 that nothing was lost.
+
+**5.2: Make a folder for it on Shulker:**
 ```
 mkdir -p /data/bot/backups
 ```
 
-**5.2: Upload the backup file.**
+**5.3: Upload the backup file.**
 1. In the Shulker file explorer, click **refresh**, then open **data** → **bot** → **backups**.
 2. Click the **upload** icon (the arrow pointing up, at the top of the explorer).
-3. Pick the `.json.gz` file from Part 3. On your PC it's in the **Satan → backups** folder.
+3. Pick the `.json.gz` file from 5.1. On your PC it's in the **Satan → backups** folder.
 4. Wait until it appears in the list.
 
-**5.3: Load it into the bot's database.** Replace `FILENAME` with the real file name, for example `satan-2026-09-22T10-00-00-000Z.json.gz`. Keep `backups/` in front:
+**5.4: Load it and start the bot.** Replace `FILENAME` with the real file name, for example `satan-2026-09-22T10-00-00-000Z.json.gz`. Keep `backups/` in front:
 ```
 sh /data/bot/scripts/host-restore.sh backups/FILENAME
 ```
 - It prints **`✓ Restored`** and a line of numbers like `player=4 ... auditLog=31`.
-- **Compare those numbers with your screenshot from Part 3.** If they match, every player, match and ELO point arrived safely.
-- This command also **starts the bot**.
+- **Compare those numbers with your screenshot from 5.1.** If they match, every player, match and ELO point arrived safely.
+- It ends with **`Restore finished.`** and **starts the bot**.
 
 > Not sure of the exact file name? Run `sh /data/bot/scripts/host-restore.sh` with nothing after it. It lists the backups it can see.
 
-## Part 6: Make the bot start by itself
+> **Starting with empty stats instead?** Skip 5.1–5.4 and just run:
+> ```
+> sh /data/bot/scripts/host-start.sh
+> ```
 
-Without this step the bot stays off after Shulker restarts your server, for example during maintenance.
+## Part 6: Check that the bot runs
 
-1. Click the **gear icon** (Settings) and scroll to **STARTUP**.
-2. Select the option **"Execute a script file on start"**.
-3. In its box, type exactly:
-   ```
-   /data/bot/scripts/host-boot.sh
-   ```
-   If the box asks for a **command** rather than a file, type `sh /data/bot/scripts/host-boot.sh` instead.
-4. Click **Save**, then **Apply & restart**.
-5. Wait **1 minute**, then in the terminal run:
-   ```
-   sh /data/bot/scripts/host-logs.sh
-   ```
-6. You should see:
-   ```
-   Bot: RUNNING
-   Database: RUNNING
-   ```
-   and further down, a line containing **`BOT_READY`**.
+Wait **1 minute**, then run:
+```
+sh /data/bot/scripts/host-logs.sh
+```
+You should see:
+```
+Bot: RUNNING
+Database: RUNNING
+```
+and further down, a line containing **`BOT_READY`**.
 
-## Part 7: Check that everything works
+Then prove that auto-start works: click **gear → Apply & restart** (or restart the server from the panel), wait 1–2 minutes, and run `host-logs.sh` again. It should show **RUNNING** again without you starting anything.
 
-Go through this list in Discord:
+## Part 7: Final check in Discord
+
+Go through this list:
 
 - [ ] The bot shows as **online** in the member list.
 - [ ] Its status changes every 10 seconds ("Watching over the Seven Angels", "Competing in ranked 1v1s", and so on).
@@ -424,7 +429,7 @@ Your data is safe in **#bot-backups**. Run the real bot from your PC until Shulk
 **When Shulker works again**, move back:
 1. **Close** the `start.bat` window on your PC.
 2. In VS Code: `npm run db:backup`. This saves everything that happened while the PC was in charge.
-3. Upload the new file to Shulker (Part 5, steps 5.2 and 5.3).
+3. Upload that new file to Shulker and load it (Part 5, steps 5.2 to 5.4).
 4. Double-click **`use-test-bot.bat`** on your PC.
 
 ### The real bot is running in two places (a clash)
@@ -450,11 +455,15 @@ Use this if data got messed up, for example a wrong reset.
 
 You can also load a file downloaded from **#bot-backups**: upload it to `data/bot/backups` in the explorer and use `backups/FILENAME`.
 
-### Shulker "reinstalled" my server
-Your bot, database, settings and backups are on the **volume**, so they're safe. Only the startup setting is erased.
-1. Redo **Part 6** (startup script, then Apply & restart).
-2. The first start takes a minute or two longer, because it reinstalls the database program by itself.
-3. Check with `sh /data/bot/scripts/host-logs.sh`.
+### Shulker "reinstalled" my server (everything on Shulker is gone)
+Without a volume, a reinstall erases the bot, its database and its settings on Shulker. Your data is still safe in **#bot-backups**. Rebuild in about 15 minutes:
+
+1. In Discord, open **#bot-backups** and **download the newest file** (the last message).
+2. On Shulker, redo **Part 2** (git, download, auto-start and the restart check), **Part 3** (setup) and **Part 4** (`.env` settings).
+3. Do **Part 5, steps 5.2 to 5.4**, but upload the file you downloaded from Discord instead of making a new one on your PC.
+4. Check with **Part 6** and **Part 7**.
+
+The most you lose is whatever changed after that last backup (at most about one hour).
 
 ### I lost the `.env` file on Shulker
 The database password is stored in it, so ask Claude before running setup again. Your data itself is still safe.
@@ -511,16 +520,16 @@ Settings you can change in `/data/bot/.env` (restart the bot afterwards):
 2. **Test first, then update.** PC and test server first; `host-update.sh` on Shulker only after it works.
 3. **Keep #bot-backups private.** The files contain private server links.
 4. **Never share or screenshot your `.env` files or tokens.** If a token leaks, reset it in the Developer Portal right away and update the `.env` file(s).
-5. **Don't click "Reinstall container"** unless you must. If you do, redo Part 6.
+5. **Never click "Reinstall container"** unless Claude tells you to. It erases everything on Shulker, and you'd have to rebuild from the Discord backup (Part 11).
 6. **When unsure, run `host-logs.sh` and send Claude a screenshot** before trying fixes.
 
 ## Part 15: Questions and answers
 
 **Do I need to keep the Shulker tab open?**
-No. Once Part 6 is done, the bot runs on its own, even with your PC off.
+No. Once setup is finished, the bot runs on its own, even with your PC off.
 
 **Does the bot restart itself if it crashes?**
-Yes, within 10 seconds. If the whole server restarts, the startup script from Part 6 brings everything back.
+Yes, within 10 seconds. If the whole server restarts, the auto-start from Part 2 brings everything back.
 
 **Will members lose their matches during an update?**
 No. The bot is offline for a few minutes, and matches in progress continue afterwards.

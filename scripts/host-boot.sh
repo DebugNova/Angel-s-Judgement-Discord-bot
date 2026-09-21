@@ -33,6 +33,12 @@ shutdown() {
 }
 trap shutdown TERM INT HUP
 
+# Until host-setup.sh has finished, only wait: the startup script may be switched on before setup.
+if [ ! -f .setup-done ]; then
+  echo "Waiting for setup to finish (run: sh $BOT_DIR/scripts/host-setup.sh)"
+  until [ -f .setup-done ]; do sleep 5; done
+fi
+
 until ensure_packages; do
   echo "Installing system packages failed; retrying in 30 seconds"
   sleep 30

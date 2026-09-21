@@ -11,3 +11,4 @@ logs/
 .bot.pid
 .boot.pid
 .paused
+.setup-done
