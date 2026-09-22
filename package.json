@@ -10,7 +10,7 @@
   },
   "main": "dist/index.js",
   "scripts": {
-    "build": "tsc -p tsconfig.build.json",
+    "build": "node scripts/build.mjs",
     "start": "node dist/index.js",
     "dev": "tsx watch src/index.ts",
     "typecheck": "tsc --noEmit",
@@ -27,7 +27,8 @@
     "db:dev": "node scripts/dev-db.mjs",
     "check": "npm run typecheck && npm run lint && npm test",
     "smoke": "npm run build && node dist/scripts/smoke.js",
-    "rehearse": "npm run build && node dist/scripts/rehearse-update.js"
+    "rehearse": "npm run build && node dist/scripts/rehearse-update.js",
+    "build:tsc": "tsc -p tsconfig.build.json"
   },
   "dependencies": {
     "@discordjs/voice": "~0.19.2",
