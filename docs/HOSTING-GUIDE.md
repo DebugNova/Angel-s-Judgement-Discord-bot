@@ -132,42 +132,80 @@ ls -lt /data/bot/backups/auto
 
 ## 6. Changing the bot: test, then publish
 
-Do **section 7 once** first, so your PC has its own test bot.
+This is how **every** change goes live, from a small text fix to a big new feature like moderation or music.
+
+```
+1. BUILD      Claude writes the change on your PC.
+2. CLAUDE     Claude runs the automatic tests + a live test with the TEST bot.
+3. YOU        You try it yourself with the TEST bot in your AJ Test server.
+4. APPROVE    You say "push". The code goes to GitHub. Members see nothing yet.
+5. GO LIVE    You paste ONE command on Shulker: backup → install → restart.
+```
+
+> ⚠️ **Do section 7 first (one time).** Until then your PC has the **real** token, so testing would bring a second copy of your real bot online in your clan server. Claude checks this before testing.
+
+### Why your data is safe during updates
+- An update replaces the bot's **program** only. Your players, ELO and matches live in the **database**, which the update never erases.
+- If a feature needs to store something new (for example moderation warnings), the database gets **new tables added** automatically when the bot starts. Existing data isn't touched.
+- The update makes a **backup first** (`backups/before-update/`), and #bot-backups gets one every hour anyway.
+- A bad version can always be undone (see "If something goes wrong" below).
 
 ### Step 1: Ask Claude for the change
-Claude edits the code and runs the automatic tests (`npm run check`).
+Describe what you want. Claude writes it and runs the **automatic tests** (`npm run check`): about 60+ checks of the rules (ELO, matches, permissions, backups). New features get their own new tests.
 
-### Step 2: Test it with the test bot
-1. In your bot folder, double-click **`use-test-bot.bat`** (makes sure your PC uses the test bot).
-2. Double-click **`start.bat`**. The **test** bot comes online in your **AJ Test** server.
-3. Try the new feature there. For duels you need a second account or a friend in AJ Test.
+### Step 2: Claude's live test
+Claude runs `npm run smoke`. It uses the **test** bot to click through the real Discord flows in **AJ Test** (challenge, match room, report, dispute, referee, leaderboard, backups…). It must end with `ALL … smoke steps passed`. It never touches your clan server or real data.
+
+### Step 3: Your test
+1. Double-click **`use-test-bot.bat`** (makes sure your PC uses the test bot).
+2. Double-click **`start.bat`**. **Angel's Judgement Test** comes online in **AJ Test**.
+3. Try the change like a member would. Examples:
+   - **Duels:** you need a second Discord account or a friend in AJ Test.
+   - **Moderation:** try it on an alt account or a friend in AJ Test (never on your real members).
+   - **Music:** join a voice channel in AJ Test and play something.
 4. Close the `start.bat` window when you're done.
+5. Not happy? Tell Claude what to change and repeat from step 1. Happy? Go to step 4.
 
-Claude can also run the full live test: `npm run smoke`, which should end with `ALL 17/17 smoke steps passed`.
+The test bot uses its **own separate practice database** on your PC. Nothing you do in AJ Test reaches the real bot.
 
-### Step 3: Publish to GitHub
-Tell Claude **"push"**. Nothing changes for your members yet.
+### Step 4: Approve
+Tell Claude **"push"**. The new code goes to GitHub. **Nothing changes for your members yet.**
 
-### Step 4: Update the real bot on Shulker
-Pick a quiet time. The bot is offline for **2–4 minutes**. Matches in progress are **not** lost; they continue afterwards.
+Claude will also tell you if this change needs anything extra before going live (see "Big features" below).
+
+### Step 5: Go live on Shulker
+Pick a quiet time. The bot is offline for **2–4 minutes**; matches in progress are **not** lost and continue afterwards.
 
 Paste into Shulker:
 ```
 sh /data/bot/scripts/host-update.sh
 ```
-This does everything in order: stop the bot, **back up the data**, download the new version, build it, and start it again. It ends with **`Update finished.`**
+It does, in order: stop the bot → **back up the data** → download the new version → install and build → start it again. It ends with **`Update finished.`**
 
-### Step 5: Check it
+### Step 6: Check it
 ```
 sh /data/bot/scripts/host-logs.sh
 ```
-You want **Bot: RUNNING**. Try `/stats` in Discord.
+You want **Bot: RUNNING** and a `BOT_READY` line. Then try `/stats` and the new feature in your clan server.
+
+### Big features (moderation, music, …): the extra bits
+Some features need a little more than code. Claude tells you exactly which ones apply **before** step 5:
+
+| Needs | Why | What you do |
+| --- | --- | --- |
+| **New Discord permissions** | Moderation needs Kick, Ban, Timeout and Manage Messages; music needs Connect and Speak | Server Settings → Roles → the bot's role → turn them on. Do it in **AJ Test** for testing and in your **clan server** before going live. |
+| **Developer Portal switches** | For example "Server Members Intent" for moderation | Developer Portal → the app → **Bot** → turn it on. Do it for **both** the test bot and the real bot. |
+| **Extra programs on Shulker** | Music needs `ffmpeg` to play sound | Nothing extra: Claude makes `host-update.sh` install it automatically. |
+| **New settings** | For example a music service key | Claude gives you the `host-env.sh` line to paste (section 11). |
+
+**About server size:** music uses more of the server's power than the rest of the bot. Your 512 MB / 1 CPU plan is fine for one voice channel at a time. After launch, check `host-logs.sh` and Shulker's CPU/RAM numbers for a few days.
 
 ### If something goes wrong
 | You see | Do this |
 | --- | --- |
-| `Update FAILED` | Your data is untouched. Start the old version with `sh /data/bot/scripts/host-start.sh`, and send Claude a screenshot. |
-| The bot runs but something's broken | Tell Claude. Claude undoes the change and pushes; you run `host-update.sh` again. |
+| `Update FAILED` | Your data is untouched. Try `sh /data/bot/scripts/host-start.sh`. Either way, send Claude a screenshot. |
+| The bot runs, but the new feature is broken | Tell Claude. Claude fixes it (or undoes it) and pushes; you run `host-update.sh` again. |
+| Something old broke after the update | Tell Claude **"undo the last update"**. Claude reverts it and pushes; you run `host-update.sh` again. You're back on the previous version with all data intact. |
 | The data looks wrong | See **section 10** and load the backup from `backups/before-update/`. |
 
 ---
