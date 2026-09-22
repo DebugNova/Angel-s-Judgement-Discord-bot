@@ -407,3 +407,5 @@ Backups made before updates are in `backups/before-update/`. Older ones are in D
 - **Can I change ELO and other settings without an update?** Yes, with `/config` in Discord. It works instantly.
 - **Do I need Shulker's $0.50 volume?** No. Your data survives normal restarts; for a full wipe you have the Discord backups (section 8).
 - **What's `ORPHAN_DETECTED` in the logs?** Harmless. See section 3.
+- **Who can use moderation (`/ban`, `/kick`, `/warn`…)?** Only people with the **z** role, nobody else (not even admins). To change that: `/config roles level:moderation` (server owner only). If you ever load a backup made **before** moderation was added, pick the z role again with that command.
+- **Where do moderation actions show up?** In the mod-log channel (`/config channel modlog`); until you pick one, in your bot-logs channel.

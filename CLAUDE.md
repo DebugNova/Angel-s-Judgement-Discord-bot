@@ -19,7 +19,8 @@ Node 20.11+ (dev machine runs 24) · TypeScript **5.9** strict, ESM (`"type": "m
 | `npm run commands:deploy -- --validate` | ask Discord to validate command definitions |
 
 ## Layout
-- `src/modules/*`: **business logic, no discord.js imports.** One service per area: challenges, matches, results (`finalize.ts` = the only way a match result becomes official), referee, elo, leaderboard, history, players, permissions, configuration, cooldowns, audit, reset, seasons.
+- `src/modules/*`: **business logic, no discord.js imports.** One service per area: challenges, matches, results (`finalize.ts` = the only way a match result becomes official), referee, elo, leaderboard, history, players, permissions, configuration, cooldowns, audit, reset, seasons, moderation (cases, safety rules, durations, purge/mass-role filters).
+- `src/discord/moderation/`: moderation commands, actions (check → act on Discord → DM → record case), confirm buttons (in-memory tokens, 2 min), role-for-everyone job, mod-log poster. It never touches matches/ELO.
 - `src/discord/`: interface. `events.ts` routes interactions (permission gate, rate limit, error → friendly embed). `commands/` holds member/staff/admin slash commands. `components.ts` holds every button/select/modal handler. `actions/staff.ts` holds the shared referee flows. `flows.ts` holds the side effects after state changes. `managers/` covers channels (private rooms), panel (persistent + sticky status panel) and notify (history/staff/log/leaderboard channels). `jobs.ts` is the 20 s sweep + startup recovery. `ui/` holds `theme.ts`, `embeds.ts`, `components.ts`, and **`lore.ts` (all branding and story text)**. `ids.ts` defines the customId scheme.
 - `src/database/`: Prisma client, embedded PostgreSQL bootstrap (`embedded.ts`), migrations runner, backup.
 - `prisma/schema.prisma` + `prisma/migrations/`.
@@ -35,9 +36,10 @@ Node 20.11+ (dev machine runs 24) · TypeScript **5.9** strict, ESM (`"type": "m
 6. User-facing failures throw `DomainError(code, message, title)`. Anything else is logged and shown as a generic error.
 7. Staff can't act on their own matches (`assertImpartial`). Admin-role config is owner-only.
 8. Private server links and evidence never leave the match channel.
+9. Moderation (`/ban /kick /timeout /warn /purge /role /slowmode /lock` …) is usable **only** by members holding a role in `GuildConfig.moderationRoleIds` (the clan's **z** role). Owner/Admin/bot levels do NOT grant it (owner's explicit wish). Every press re-checks it (`requireModeration`). Every action = one numbered `ModCase` + `AuditLog` row (`recordCase`), written only after Discord accepted the action. Safety rules live in `modules/moderation/safety.ts`.
 
 ## How to…
-- **Add a slash command:** add it to the relevant array in `src/discord/commands/{member,staff,admin}.ts` (set `level`, and `cooldown` if spammy). Registration is automatic on bot start. Update `HELP_CATEGORIES` in `embeds.ts`, the README command table and TEST.md. The smoke test asserts the command count (`commands.length === 16`), so update it.
+- **Add a slash command:** add it to the relevant array in `src/discord/commands/{member,staff,admin}.ts` (set `level`, and `cooldown` if spammy). Registration is automatic on bot start. Update `HELP_CATEGORIES` in `embeds.ts`, the README command table and TEST.md. The smoke test asserts the command count (`commands.length === 29`), so update it. Moderation commands live in `src/discord/moderation/` (only `GuildConfig.moderationRoleIds` may use them; see rule 9).
 - **Add a button:** add an ID builder in `ids.ts` (customId ≤ 100 chars), a builder in `ui/components.ts`, and a handler branch in `components.ts` that re-validates. Add a case to `tests/interactions.test.ts`.
 - **Change the schema:** edit `schema.prisma`, run `npm run db:dev` in one terminal, then `DATABASE_URL=postgresql://satan:satan-local@127.0.0.1:54321/satan npx prisma migrate dev --name <change>` (bot stopped). Migrations apply automatically on bot start. If you add a table, also add it to `src/database/backup.ts`, and to `resetDb` in `tests/helpers.ts`.
 - **Change text/lore/branding:** `src/discord/ui/lore.ts` (and titles in `embeds.ts`).

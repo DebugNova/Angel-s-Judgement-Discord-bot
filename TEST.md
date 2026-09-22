@@ -165,6 +165,29 @@ Player A and Player B in any normal channel:
 
 ---
 
+## 9b. Moderation (you + an alt account; never on real members)
+
+Only members with the **moderation role** can moderate (clan server: **z**; AJ Test: a test role also called **z**). Being owner or admin is not enough. Your alt account plays the troublemaker. It must have **no** z role.
+
+- [ ] From the **alt**: `/warn` → 🔒 "Moderation is reserved for @z". Nothing happens.
+- [ ] `/warn member:@alt reason:test` → private "⚠️ Warning · Case #1". The alt gets a DM. **#mod-log** shows the case card (member, moderator, reason, DM delivered).
+- [ ] `/warnings member:@alt` → their record: 1 active warning, the case listed. `/unwarn case:1 reason:mistake` → "Warning #1 removed" (also in #mod-log). `/warnings` again → 0 active, the case shown ~~removed~~.
+- [ ] `/timeout member:@alt duration:` → a list of choices appears (5 minutes, 1 hour…). Pick **5 minutes** → the alt can't type. `/untimeout member:@alt` → they can type again.
+- [ ] `/timeout member:@alt duration:banana` → "`banana` is not a duration…".
+- [ ] `/warn member:@you` (yourself) → "You can't warn yourself." Same for the server owner and the bot.
+- [ ] `/kick member:@alt reason:test` → red **Confirm kick** card with **Kick** / **Cancel**. **Cancel** → "Nothing was done". Run it again → **Kick** → the alt is removed and got a DM first. Re-invite the alt.
+- [ ] `/ban user:@alt delete_messages:Last hour` → confirm card → **Ban**. The alt is banned. `/unban user:` → start typing the alt's name → pick it → unbanned. Re-invite the alt.
+- [ ] Wait 2 minutes on a confirm card, then press the button → "This confirmation has expired".
+- [ ] In a channel, send 5 messages containing `hello` and 3 without. `/purge amount:20 contains:hello` → confirm card "5 found" → **Delete 5** → only those 5 are gone. `/purge amount:3` → deletes the last 3 straight away (small purges don't ask).
+- [ ] Create a role **Initiate** (below the bot's role). `/role give member:@alt role:@Initiate` → given. `/role take …` → taken.
+- [ ] `/role everyone role:@Initiate action:Give to everyone` → preview (how many will get it, time needed) → **Give to N** → a progress card with ▰▰▱ and **Stop** appears in the channel → finishes with "Finished". Then `…action:Take from everyone`.
+- [ ] `/role everyone` with a role that has staff powers (e.g. Ban Members) → refused "can't be given to everyone at once".
+- [ ] `/slowmode delay:10 seconds` → the alt can only post every 10 s. `/slowmode delay:Off`.
+- [ ] `/lock` → a 🔒 notice is posted, the alt can't write. `/unlock` → 🔓 notice, the alt can write again.
+- [ ] `/config view` → the **Moderation** section shows the z role, #mod-log and the case count.
+
+---
+
 ## 10. Spam & abuse checks
 
 - [ ] A runs `/stats` 3 times very fast → the 2nd/3rd say "Slow down…".

@@ -66,7 +66,8 @@ On <https://discord.com/developers/applications> → your application:
 | --- | --- |
 | **Bot → Token** | Put it in `.env` as `DISCORD_TOKEN`. Never share it. |
 | **Bot → Privileged Gateway Intents → Message Content Intent** | **ON.** Needed to record screenshots uploaded as evidence. |
-| Server Members Intent / Presence Intent | Not needed |
+| **Bot → Privileged Gateway Intents → Server Members Intent** | **ON.** Needed for `/role everyone` (reading the member list). Everything else works without it. |
+| Presence Intent | Not needed |
 | **Installation → Install Link** | Use the invite link below |
 
 ---
@@ -76,7 +77,7 @@ On <https://discord.com/developers/applications> → your application:
 Invite link (bot + slash commands, only the permissions it needs):
 
 ```
-https://discord.com/oauth2/authorize?client_id=1551652614566051931&permissions=268561488&scope=bot%20applications.commands
+https://discord.com/oauth2/authorize?client_id=1551652614566051931&permissions=1099780001270&scope=bot%20applications.commands
 ```
 
 | Permission | Why |
@@ -86,6 +87,7 @@ https://discord.com/oauth2/authorize?client_id=1551652614566051931&permissions=2
 | Manage Roles | Write the permission overwrites that make match channels private, and lock them after a match |
 | Manage Messages | Keep the match panel as the latest message |
 | Attach Files, Add Reactions | Evidence uploads (the bot reacts 📎 to recorded evidence) |
+| Kick Members, Ban Members, Timeout Members | Moderation (`/kick`, `/ban`, `/timeout`). The bot's role must sit **above** the roles of anyone it should moderate or hand out. |
 
 Administrator is **not** required. If you've already given the bot Administrator, that works too.
 
@@ -193,6 +195,20 @@ The defaults: starting ELO 1000, K-factor 48 (1.5x the master spec's 32, for fas
 | `/resetstats scope:(all/elo/streak/user)` · `/player reset @p` | Resets, with a typed confirmation `RESET SEVEN ANGELS` |
 | `/maintenance enabled:true [message]` | Pause new challenges; ongoing matches continue |
 
+**Moderation.** Only members holding the **moderation role** may use these (set by the owner with `/config roles level:moderation`; in Seven Angels this is the **z** role). Owner, Admin or staff levels do **not** count. Every action gets a case number and a card in the mod-log channel (`/config channel modlog`, falls back to the logs channel).
+
+| Command | Description |
+| --- | --- |
+| `/warn @member reason [dm]` · `/warnings @member` · `/unwarn case [reason]` | Warnings with case numbers; `/warnings` shows the member's full record |
+| `/timeout @member duration [reason] [dm]` · `/untimeout @member` | Discord timeout, 1 minute to 28 days (`10m`, `1h`, `2d`…) |
+| `/kick @member [reason] [dm]` | Asks to confirm |
+| `/ban @user [reason] [delete_messages] [dm]` · `/unban user` | Ban asks to confirm and works by ID; unban suggests names from the ban list |
+| `/purge amount [user] [bots] [attachments] [contains] [reason]` | Deletes up to 500 recent messages here (over 10 asks to confirm; skips pinned and 14+ days old) |
+| `/role give\|take @member @role` · `/role everyone @role action [include_bots]` | One member, or everyone (preview → confirm → live progress with Stop; about one member per second) |
+| `/slowmode delay [channel]` · `/lock [channel]` · `/unlock [channel]` | Unlock restores the channel's exact previous permissions |
+
+Safety: nobody can act on themselves, the server owner, the bot, or anyone whose highest role is equal to or above theirs or the bot's. Roles with staff powers can't be given to everyone. `/config moderation dm_members` sets whether members are told by DM by default.
+
 Permission levels: **Owner** (server owner or `BOT_OWNER_IDS`) > **Admin** (Discord Administrator or admin role) > **Moderator** > **Referee** > **Member**. Staff can never act on a match they are playing in.
 
 ---
@@ -284,7 +300,7 @@ Environments: use a separate bot application and test server for development (`N
 ```bash
 npm run dev          # watch mode (tsx)
 npm run check        # typecheck + lint + tests
-npm test             # 59 unit, integration and simulated-button tests against a throw-away PostgreSQL
+npm test             # 88 unit, integration and simulated-button tests against a throw-away PostgreSQL
 npm run smoke        # LIVE check in your real server (stop the bot first); cleans up after itself
 npm run db:dev       # run the bundled PostgreSQL in the foreground (for prisma migrate dev / studio)
 npm run commands:deploy              # register commands without starting the bot
