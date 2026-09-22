@@ -64,7 +64,12 @@ async function ensureDatabase(pg: EmbeddedPostgres): Promise<void> {
   await withTimeout(client.connect(), CONNECT_TIMEOUT_MS);
   try {
     const res = await client.query('SELECT 1 FROM pg_database WHERE datname = $1', [DATABASE]);
-    if (res.rowCount === 0) await client.query(`CREATE DATABASE "${DATABASE}"`);
+    if (res.rowCount === 0) {
+      // Always UTF-8, even inside an older data folder that was created with WIN1252.
+      await client.query(
+        `CREATE DATABASE "${DATABASE}" WITH ENCODING 'UTF8' LC_COLLATE 'C' LC_CTYPE 'C' TEMPLATE template0`,
+      );
+    }
   } finally {
     await client.end().catch(() => undefined);
   }
@@ -182,6 +187,9 @@ export async function startEmbeddedDatabase(dir: string, port: number): Promise<
     user: USER,
     password: PASSWORD,
     persistent: true,
+    // UTF-8 whatever the PC's language: Windows would otherwise pick WIN1252, which can't store
+    // names written in fancy Unicode letters (common on Discord).
+    initdbFlags: ['--encoding=UTF8', '--locale=C'],
     onLog: (m) => log.debug('POSTGRES', { message: String(m).trim() }),
     onError: (m) => log.debug('POSTGRES_STDERR', { message: String(m).trim() }),
   });
