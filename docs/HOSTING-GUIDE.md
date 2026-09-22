@@ -408,4 +408,6 @@ Backups made before updates are in `backups/before-update/`. Older ones are in D
 - **Do I need Shulker's $0.50 volume?** No. Your data survives normal restarts; for a full wipe you have the Discord backups (section 8).
 - **What's `ORPHAN_DETECTED` in the logs?** Harmless. See section 3.
 - **Who can use moderation (`/ban`, `/kick`, `/warn`…)?** Only people with the **z** role, nobody else (not even admins). To change that: `/config roles level:moderation` (server owner only). If you ever load a backup made **before** moderation was added, pick the z role again with that command.
+- **Music says "the audio program (ffmpeg) is not installed"?** Run `sh /data/bot/scripts/host-update.sh` once; it installs ffmpeg. The YouTube reader (yt-dlp) is downloaded and updated by the bot itself (in `/data/bot/tools`).
+- **YouTube songs stop working for everyone?** YouTube sometimes blocks servers for a while. The bot updates its YouTube reader daily; wait a few hours, or send Claude `host-logs.sh` (look for `YOUTUBE_BLOCKED`). Everything else keeps working.
 - **Where do moderation actions show up?** In the mod-log channel (`/config channel modlog`); until you pick one, in your bot-logs channel.

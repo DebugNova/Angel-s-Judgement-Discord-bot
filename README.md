@@ -88,6 +88,7 @@ https://discord.com/oauth2/authorize?client_id=1551652614566051931&permissions=1
 | Manage Messages | Keep the match panel as the latest message |
 | Attach Files, Add Reactions | Evidence uploads (the bot reacts 📎 to recorded evidence) |
 | Kick Members, Ban Members, Timeout Members | Moderation (`/kick`, `/ban`, `/timeout`). The bot's role must sit **above** the roles of anyone it should moderate or hand out. |
+| Connect, Speak | Music (join a voice channel and play) |
 
 Administrator is **not** required. If you've already given the bot Administrator, that works too.
 
@@ -194,6 +195,18 @@ The defaults: starting ELO 1000, K-factor 48 (1.5x the master spec's 32, for fas
 | `/config view · channel · roles · elo · cooldown · challenge · matches · leaderboard · display · season` | Configuration |
 | `/resetstats scope:(all/elo/streak/user)` · `/player reset @p` | Resets, with a typed confirmation `RESET SEVEN ANGELS` |
 | `/maintenance enabled:true [message]` | Pause new challenges; ongoing matches continue |
+
+**Music.** Join a voice channel first. Results are posted in the channel; a player panel with buttons (Back, Pause/Resume, Skip, Stop, Shuffle, Loop, Vol −/+, Queue) stays at the bottom of the chat.
+
+| Command | Description |
+| --- | --- |
+| `/play song [next]` | A song name (best match) or a YouTube, Spotify or SoundCloud link, including Spotify albums/playlists and YouTube playlists (up to 500 songs) |
+| `/search song` | Pick the right song from the top 5 results |
+| `/skip` · `/stop` · `/queue [page]` · `/nowplaying` | Skip (or vote to skip), stop and leave, browse the queue, move the player to the bottom |
+| `/music pause · resume · back · loop · shuffle · volume · seek · remove · move · jump · clear · history · stay` | Controls; `stay` = 24/7 mode (DJs/staff) |
+| `/playlist save · load · list · delete` | Each member's own saved playlists (25 × 200 songs) |
+
+Spotify audio can't be streamed by bots (DRM): the bot reads the song list from Spotify's public page and plays each song from YouTube, choosing the upload with the right length and preferring official ones. With no DJ role set (`/config roles level:dj`), everyone in the voice channel controls playback; with one, others can add songs, skip their own songs and vote to skip. The bot pauses when everyone leaves, leaves after 2 minutes alone or 3 minutes after the queue ends (unless 24/7), and resumes the queue after a restart. It needs **ffmpeg** (installed by the Shulker scripts; `winget install Gyan.FFmpeg` on Windows) and downloads/updates **yt-dlp** itself.
 
 **Moderation.** Only members holding the **moderation role** may use these (set by the owner with `/config roles level:moderation`; in Seven Angels this is the **z** role). Owner, Admin or staff levels do **not** count. Every action gets a case number and a card in the mod-log channel (`/config channel modlog`, falls back to the logs channel).
 

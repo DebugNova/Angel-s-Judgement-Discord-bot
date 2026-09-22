@@ -188,6 +188,23 @@ Only members with the **moderation role** can moderate (clan server: **z**; AJ T
 
 ---
 
+## 9c. Music (join a voice channel in AJ Test first)
+
+- [ ] `/play song:blinding lights` → the bot joins your voice channel and plays; a **Now Playing** panel appears with a progress bar and buttons.
+- [ ] Press **Pause** → music stops, button turns into **Resume**. Press **Resume**.
+- [ ] `/play song:<a YouTube link>` → "Added to Queue · Position 1". `/play song:<a Spotify album or playlist link>` → "Added N Songs · From …".
+- [ ] Press **Skip** → next song. Press **Back** → previous song again.
+- [ ] Press **Queue** → a list only you see, with pages and "Play one of these now…". Pick one → it plays.
+- [ ] **Shuffle**, **Loop: Off → Song → Queue**, **Vol −** / **Vol +** (a short gap is normal: the stream restarts at the new volume).
+- [ ] `/music seek to:1:00` → jumps to one minute. `/music remove position:1`, `/music move from:2 to:1`, `/music clear`.
+- [ ] `/search song:never gonna give you up` → pick one from the menu → it's added.
+- [ ] `/playlist save name:Test` → `/stop` → `/playlist load name:Test` → the songs come back.
+- [ ] Leave the voice channel → the panel says "Paused: everyone left". Rejoin → music continues. Stay away 2 minutes → the bot leaves.
+- [ ] While music plays, close the bot window and start it again → it rejoins and continues the same song near where it was.
+- [ ] `/config roles level:dj` → pick a role your alt doesn't have → the alt can add songs but **Skip** becomes a vote; **Stop**/**Pause** say "Only @DJ can …". Clear the DJ role again (select nothing).
+
+---
+
 ## 10. Spam & abuse checks
 
 - [ ] A runs `/stats` 3 times very fast → the 2nd/3rd say "Slow down…".
