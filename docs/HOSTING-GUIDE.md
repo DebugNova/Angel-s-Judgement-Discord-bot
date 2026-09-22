@@ -223,10 +223,10 @@ In Discord: **+** (bottom of the server list) → **Create My Own** → name it 
 **7.3: Make the test bot**
 1. <https://discord.com/developers/applications> → **New Application** → name it `Angel's Judgement Test` → **Create**.
 2. Copy the **Application ID** into Notepad.
-3. **Bot** tab → **Reset Token** → copy the token into Notepad. On the same tab, turn **Message Content Intent** ON → **Save Changes**.
-4. Open this link with `TEST_APP_ID` replaced by the Application ID, pick **AJ Test**, and click **Authorize**:
+3. **Bot** tab → **Reset Token** → copy the token into Notepad. On the same tab, turn **Server Members Intent** and **Message Content Intent** ON → **Save Changes**.
+4. Open this link with `TEST_APP_ID` replaced by the Application ID, pick **AJ Test**, and click **Authorize**. It already includes the extra permissions moderation and music will need (Kick, Ban, Timeout, Connect, Speak), so the test bot never needs a second invite:
    ```
-   https://discord.com/oauth2/authorize?client_id=TEST_APP_ID&permissions=268561488&scope=bot%20applications.commands
+   https://discord.com/oauth2/authorize?client_id=TEST_APP_ID&permissions=1099783334998&scope=bot%20applications.commands
    ```
 
 **7.4: Two dummy bots** (the live test uses them as pretend players; they never need to be switched on)
@@ -238,7 +238,9 @@ https://discord.com/oauth2/authorize?client_id=DUMMY_APP_ID&permissions=0&scope=
 **7.5: Make the test settings file**
 Copy `.env` again (like 7.1) and name it **`.env.test`**. Open it and change:
 - `DISCORD_TOKEN=` → the **test** bot's token
+- `DISCORD_CLIENT_ID=` → the **test** bot's Application ID (not the real one, or the slash commands won't register)
 - `DISCORD_GUILD_ID=` → the **AJ Test** server ID
+- `NODE_ENV=` → `development`
 
 Save with **Ctrl + S**.
 
