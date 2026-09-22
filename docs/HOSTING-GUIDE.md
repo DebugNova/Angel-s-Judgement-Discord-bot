@@ -232,7 +232,7 @@ In Discord: **+** (bottom of the server list) → **Create My Own** → name it 
 **7.4: Two dummy bots** (the live test uses them as pretend players; they never need to be switched on)
 Make two more applications named `AJ Dummy 1` and `AJ Dummy 2`. Invite each one with this link, `DUMMY_APP_ID` replaced by its Application ID:
 ```
-https://discord.com/oauth2/authorize?client_id=DUMMY_APP_ID&permissions=0&scope=bot
+https://discord.com/oauth2/authorize?client_id=DUMMY_APP_ID&permissions=1024&scope=bot
 ```
 
 **7.5: Make the test settings file**

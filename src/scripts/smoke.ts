@@ -136,6 +136,14 @@ try {
     if (m) stand.push(m);
     if (stand.length === 2) break;
   }
+  // Bots invited without permissions get no role, so fall back to the member list.
+  if (stand.length < 2) {
+    const members = await guild.members.list({ limit: 1000 }).catch(() => null);
+    for (const m of members?.values() ?? []) {
+      if (m.user.bot && m.id !== client.user!.id && !stand.some((s) => s.id === m.id)) stand.push(m);
+      if (stand.length === 2) break;
+    }
+  }
   check(stand.length === 2, 'Need two other bots in the server to act as test players.');
   const [m1, m2] = stand as [GuildMember, GuildMember];
   const P1: Identity = { discordId: m1.id, username: m1.user.username, displayName: m1.displayName };
