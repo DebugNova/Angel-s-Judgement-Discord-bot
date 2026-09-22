@@ -1,14 +1,14 @@
 /**
  * One music player per server: voice connection + audio player + queue + the Now Playing panel.
  *
- * Audio path: yt-dlp finds the stream URL → ffmpeg (a separate program) downloads, applies the
- * volume and encodes Opus → a 1 MB buffer → Discord. ffmpeg crashing only ends that song; it can
- * never take the bot (or the 1v1 system) down with it.
+ * Audio path: yt-dlp (a separate program) downloads the song → a memory buffer → ffmpeg (another
+ * separate program) applies the volume and encodes Opus → Discord. Either helper crashing only ends
+ * that song (it is retried once); it can never take the bot (or the 1v1 system) down with it.
  */
 import { spawn } from 'node:child_process';
 import type { ChildProcessByStdio } from 'node:child_process';
 import { PassThrough } from 'node:stream';
-import type { Readable } from 'node:stream';
+import type { Readable, Writable } from 'node:stream';
 import {
   AudioPlayerStatus,
   NoSubscriberBehavior,
@@ -27,8 +27,8 @@ import { log } from '../../core/logger.js';
 import { getConfig } from '../../modules/configuration/config.service.js';
 import { Queue } from '../../modules/music/queue.js';
 import type { Track } from '../../modules/music/queue.js';
-import { STREAM_TTL_MS, matchSong, resolveStream } from '../../modules/music/resolver.js';
-import type { StreamInfo } from '../../modules/music/resolver.js';
+import { STREAM_TTL_MS, downloadAudio, matchSong, resolveStream } from '../../modules/music/resolver.js';
+import type { AudioDownload, StreamInfo } from '../../modules/music/resolver.js';
 import { deleteSession, saveSession } from '../../modules/music/store.service.js';
 import { findFfmpeg } from '../../modules/music/tools.js';
 import { themeFor } from '../context.js';
@@ -61,8 +61,9 @@ export class GuildPlayer {
 
   private connection: VoiceConnection;
   private readonly audio: AudioPlayer;
-  private ffmpeg: ChildProcessByStdio<null, Readable, Readable> | null = null;
-  private ffmpegExit: number | null = null;
+  private ffmpeg: ChildProcessByStdio<Writable, Readable, Readable> | null = null;
+  private download: AudioDownload | null = null;
+  private streamFailed = false;
   private resource: AudioResource<Track> | null = null;
   private offsetSec = 0;
   private readonly streams = new Map<string, StreamInfo>();
@@ -301,6 +302,11 @@ export class GuildPlayer {
   /** Stops what is streaming now without triggering "song finished". */
   private stopStream(): void {
     this.resource = null;
+    if (this.download) {
+      this.download.proc.kill('SIGKILL');
+      this.download.cleanup();
+      this.download = null;
+    }
     if (this.ffmpeg) {
       this.ffmpeg.kill('SIGKILL');
       this.ffmpeg = null;
@@ -337,31 +343,22 @@ export class GuildPlayer {
     return info;
   }
 
-  private async spawnFfmpeg(info: StreamInfo, seekSec: number) {
-    const ffmpeg = await findFfmpeg();
+  /**
+   * yt-dlp downloads the song → a 32 MB memory buffer (so the download finishes in seconds and
+   * yt-dlp exits, freeing its memory) → ffmpeg sets the volume and encodes Discord's Opus audio.
+   */
+  private async spawnPipeline(info: StreamInfo, seekSec: number) {
+    const ffmpegBin = await findFfmpeg();
     const ch = this.guild.channels.cache.get(this.voiceChannelId);
     const bitrate = ch && 'bitrate' in ch && typeof ch.bitrate === 'number' ? ch.bitrate : 64000;
     const kbps = Math.min(128, Math.max(64, Math.round(bitrate / 1000)));
-    const headers = Object.entries(info.headers)
-      .map(([k, v]) => `${k}: ${v}\r\n`)
-      .join('');
     const args = [
       '-hide_banner',
       '-loglevel',
       'error',
-      '-nostdin',
-      '-reconnect',
-      '1',
-      '-reconnect_streamed',
-      '1',
-      '-reconnect_on_network_error',
-      '1',
-      '-reconnect_delay_max',
-      '5',
-      ...(headers ? ['-headers', headers] : []),
       ...(seekSec > 0 ? ['-ss', String(Math.floor(seekSec))] : []),
       '-i',
-      info.streamUrl,
+      'pipe:0',
       '-vn',
       '-af',
       `volume=${(this.volume / 100).toFixed(2)}`,
@@ -381,7 +378,41 @@ export class GuildPlayer {
       'ogg',
       'pipe:1',
     ];
-    return spawn(ffmpeg, args, { windowsHide: true, stdio: ['ignore', 'pipe', 'pipe'] });
+    const dl = await downloadAudio(info);
+    const ff = spawn(ffmpegBin, args, { windowsHide: true, stdio: ['pipe', 'pipe', 'pipe'] });
+    const buffer = new PassThrough({ highWaterMark: 32 << 20 });
+    // Killing one side on skip/stop must not crash the other with a "broken pipe".
+    for (const s of [dl.proc.stdout, buffer, ff.stdin]) s.on('error', () => undefined);
+    dl.proc.stdout.pipe(buffer).pipe(ff.stdin);
+    return { dl, ff };
+  }
+
+  /** Watches both helper programs; any real failure marks the current song as broken. */
+  private watch(dl: AudioDownload, ff: ChildProcessByStdio<Writable, Readable, Readable>): void {
+    let dlErr = '';
+    let ffErr = '';
+    dl.proc.stderr.on('data', (d: Buffer) => {
+      if (dlErr.length < 2000) dlErr += d.toString('utf8');
+    });
+    ff.stderr.on('data', (d: Buffer) => {
+      if (ffErr.length < 2000) ffErr += d.toString('utf8');
+    });
+    dl.proc.on('error', (err) => log.warn('MUSIC_DOWNLOAD_ERROR', { guild: this.guild.id }, err));
+    ff.on('error', (err) => log.warn('MUSIC_FFMPEG_ERROR', { guild: this.guild.id }, err));
+    dl.proc.on('close', (code, signal) => {
+      if (this.download !== dl || signal === 'SIGKILL' || code === 0) return;
+      this.streamFailed = true;
+      log.warn('MUSIC_DOWNLOAD_FAILED', {
+        guild: this.guild.id,
+        code: code ?? 'none',
+        error: dlErr.slice(-300),
+      });
+    });
+    ff.on('close', (code, signal) => {
+      if (this.ffmpeg !== ff || signal === 'SIGKILL' || code === 0) return;
+      this.streamFailed = true;
+      log.warn('MUSIC_FFMPEG_EXIT', { guild: this.guild.id, code: code ?? 'none', error: ffErr.slice(-300) });
+    });
   }
 
   /** Plays the queue's current track from `seekSec`. Failed songs are skipped with a notice. */
@@ -398,22 +429,17 @@ export class GuildPlayer {
     try {
       const info = await this.streamFor(track);
       if (token !== this.playToken || this.destroyed) return;
-      const ff = await this.spawnFfmpeg(info, seekSec);
-      let stderr = '';
-      ff.stderr.on('data', (d: Buffer) => {
-        if (stderr.length < 2000) stderr += d.toString('utf8');
-      });
-      ff.on('error', (err) => log.warn('MUSIC_FFMPEG_ERROR', { guild: this.guild.id }, err));
-      ff.on('close', (code) => {
-        if (this.ffmpeg === ff) this.ffmpegExit = code;
-        if (code && code !== 255 && stderr)
-          log.warn('MUSIC_FFMPEG_EXIT', { guild: this.guild.id, code, error: stderr.slice(-300) });
-      });
-      const buffered = new PassThrough({ highWaterMark: 1 << 20 });
-      ff.stdout.pipe(buffered);
-      const resource = createAudioResource(buffered, { inputType: StreamType.OggOpus, metadata: track });
+      const { dl, ff } = await this.spawnPipeline(info, seekSec);
+      if (token !== this.playToken || this.destroyed) {
+        dl.proc.kill('SIGKILL');
+        ff.kill('SIGKILL');
+        return;
+      }
+      this.download = dl;
       this.ffmpeg = ff;
-      this.ffmpegExit = null;
+      this.streamFailed = false;
+      this.watch(dl, ff);
+      const resource = createAudioResource(ff.stdout, { inputType: StreamType.OggOpus, metadata: track });
       this.resource = resource;
       this.offsetSec = seekSec;
       this.audio.play(resource);
@@ -452,18 +478,20 @@ export class GuildPlayer {
   private async onTrackEnd(): Promise<void> {
     const track = this.queue.current;
     const played = this.resource ? this.resource.playbackDuration : 0;
-    const crashed = this.ffmpegExit !== null && this.ffmpegExit !== 0;
+    const crashed = this.streamFailed;
     this.resource = null;
-    // The stream broke almost at once (expired link, network): retry the same song once.
-    if (track && crashed && played < 5_000 && !this.retried.has(track.id)) {
+    // The stream broke (expired details, network, YouTube hiccup): retry the same song once,
+    // from where it stopped, with fresh details.
+    if (track && crashed && !this.retried.has(track.id)) {
       this.retried.add(track.id);
       this.streams.delete(track.id);
       log.warn('MUSIC_STREAM_RETRY', { guild: this.guild.id, track: track.title });
       return this.playCurrent(this.positionAfter(played), false);
     }
-    // Stopped far too early and retry failed too: treat as a failed song.
-    if (track && crashed && played < 5_000) this.failures++;
-    else this.failures = 0;
+    if (track && crashed) {
+      this.failures++;
+      await this.say(`Skipped **${track.title.slice(0, 80)}**: it could not be streamed.`);
+    } else this.failures = 0;
     if (this.failures >= MAX_FAILURES_IN_A_ROW) {
       this.failures = 0;
       await this.say('Stopped: several songs in a row failed to play.');

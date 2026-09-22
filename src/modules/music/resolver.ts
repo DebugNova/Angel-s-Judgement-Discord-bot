@@ -1,4 +1,11 @@
-/** Everything that talks to yt-dlp: search, playlists, and turning a page link into a stream. */
+/** Everything that talks to yt-dlp: search, playlists, song details, and the audio download. */
+import { spawn } from 'node:child_process';
+import type { ChildProcessByStdio } from 'node:child_process';
+import { randomBytes } from 'node:crypto';
+import { mkdirSync, rmSync, writeFileSync } from 'node:fs';
+import { tmpdir } from 'node:os';
+import { join } from 'node:path';
+import type { Readable } from 'node:stream';
 import { DomainError } from '../../core/errors.js';
 import { log } from '../../core/logger.js';
 import { pickBest } from './sources.js';
@@ -12,6 +19,12 @@ const BASE_ARGS = [
   '--js-runtimes',
   `node:${process.execPath}`,
 ];
+/**
+ * YouTube often answers "Sign in to confirm you're not a bot" to its normal web client, even on
+ * home internet. These alternative clients are not challenged and still give the Opus audio.
+ */
+const CLIENT_ARGS = ['--extractor-args', 'youtube:player_client=web_embedded,web_safari,mweb'];
+const AUDIO_FORMAT = 'bestaudio[acodec=opus]/bestaudio/best';
 
 export interface SearchResult extends Candidate {
   url: string;
@@ -19,9 +32,6 @@ export interface SearchResult extends Candidate {
 }
 
 export interface StreamInfo {
-  /** Direct audio URL (expires after a few hours). */
-  streamUrl: string;
-  headers: Record<string, string>;
   title: string;
   author: string;
   durationSec: number;
@@ -29,14 +39,21 @@ export interface StreamInfo {
   pageUrl: string;
   isLive: boolean;
   resolvedAt: number;
+  /** yt-dlp's full details, so the download can start without asking YouTube again. */
+  infoJson: string;
 }
 
-/** Stream URLs from YouTube stay valid ~6 hours; re-resolve well before that. */
+/** Song details from YouTube stay usable ~6 hours; re-resolve well before that. */
 export const STREAM_TTL_MS = 4 * 3600_000;
+
+function isBotCheck(stderr: string): boolean {
+  const s = stderr.toLowerCase();
+  return s.includes('sign in to confirm') || s.includes('not a bot') || s.includes('http error 429');
+}
 
 function friendly(stderr: string, what: string): DomainError {
   const s = stderr.toLowerCase();
-  if (s.includes('sign in to confirm') || s.includes('not a bot') || s.includes('http error 429')) {
+  if (isBotCheck(stderr)) {
     return new DomainError(
       'YOUTUBE_BLOCKED',
       'YouTube is refusing the bot right now (it sometimes blocks servers). Try again in a few minutes, or try a SoundCloud link.',
@@ -121,23 +138,21 @@ export async function searchYouTube(query: string, limit = 5): Promise<SearchRes
     }));
 }
 
-/** Resolves a page URL (YouTube, SoundCloud…) into a playable audio stream + details. */
+/** Reads a song page (YouTube, SoundCloud…): its details plus what the download needs. */
 export async function resolveStream(pageUrl: string): Promise<StreamInfo> {
-  const out = await ytdlpJson(
-    ['-j', '--no-playlist', '-f', 'bestaudio[acodec=opus]/bestaudio/best', pageUrl],
-    'That song',
-    45_000,
-  );
-  const d = JSON.parse(out) as Json;
-  const streamUrl = str(d.url);
-  if (!streamUrl) throw friendly('', 'That song');
-  const headers: Record<string, string> = {};
-  if (d.http_headers && typeof d.http_headers === 'object') {
-    for (const [k, v] of Object.entries(d.http_headers as Json)) if (typeof v === 'string') headers[k] = v;
+  const args = ['-j', '--no-playlist', '-f', AUDIO_FORMAT, pageUrl];
+  let out: string;
+  try {
+    out = await ytdlpJson([...CLIENT_ARGS, ...args], 'That song', 60_000);
+  } catch (err) {
+    // The alternative clients can miss some songs; YouTube's normal client is the fallback.
+    if (!(err instanceof DomainError) || err.code === 'AGE_RESTRICTED' || err.code === 'UNSUPPORTED')
+      throw err;
+    out = await ytdlpJson(args, 'That song', 60_000);
   }
+  const line = out.trim().split('\n').pop() ?? '';
+  const d = JSON.parse(line) as Json;
   return {
-    streamUrl,
-    headers,
     title: str(d.title) || 'Unknown title',
     author: str(d.channel) || str(d.uploader) || str(d.artist),
     durationSec: num(d.duration),
@@ -145,7 +160,44 @@ export async function resolveStream(pageUrl: string): Promise<StreamInfo> {
     pageUrl: str(d.webpage_url) || pageUrl,
     isLive: d.is_live === true,
     resolvedAt: Date.now(),
+    infoJson: line,
   };
+}
+
+export interface AudioDownload {
+  proc: ChildProcessByStdio<null, Readable, Readable>;
+  /** Removes the temporary details file. */
+  cleanup: () => void;
+}
+
+const TMP = join(tmpdir(), 'angels-judgement-music');
+
+/**
+ * Starts yt-dlp downloading the song's audio to stdout (YouTube only accepts downloads done the way
+ * yt-dlp does them). Uses the saved details when present, so it starts in about a second.
+ */
+export async function downloadAudio(info: StreamInfo): Promise<AudioDownload> {
+  const bin = await ytdlp();
+  let file: string | null = null;
+  const source: string[] = [];
+  if (info.infoJson) {
+    mkdirSync(TMP, { recursive: true });
+    file = join(TMP, `${randomBytes(6).toString('hex')}.json`);
+    writeFileSync(file, info.infoJson);
+    source.push('--load-info-json', file);
+  } else {
+    source.push(...CLIENT_ARGS, info.pageUrl);
+  }
+  const proc = spawn(bin, [...BASE_ARGS, '--quiet', '-f', AUDIO_FORMAT, '-o', '-', ...source], {
+    windowsHide: true,
+    stdio: ['ignore', 'pipe', 'pipe'],
+  });
+  const cleanup = () => {
+    if (file) rmSync(file, { force: true });
+    file = null;
+  };
+  proc.on('close', cleanup);
+  return { proc, cleanup };
 }
 
 export interface PlaylistEntry {

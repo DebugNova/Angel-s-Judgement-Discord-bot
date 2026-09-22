@@ -85,9 +85,10 @@ import { statSync } from 'node:fs';
 import { renderQueue } from '../discord/music/commands.js';
 import { GuildPlayer, getPlayer } from '../discord/music/player.js';
 import type { Track } from '../modules/music/queue.js';
-import { resolveStream, searchYouTube } from '../modules/music/resolver.js';
+import { downloadAudio, resolveStream, searchYouTube } from '../modules/music/resolver.js';
 import { fetchSpotify } from '../modules/music/spotify.js';
-import { findFfmpeg, run as runTool, ytdlp } from '../modules/music/tools.js';
+import { findFfmpeg, ytdlp } from '../modules/music/tools.js';
+import { spawn } from 'node:child_process';
 import { connectForScript } from './db-connect.js';
 
 const keep = process.argv.includes('--keep');
@@ -752,10 +753,12 @@ try {
     check(hits.length > 0, 'YouTube search returned nothing');
     firstHit = hits[0]!;
     const info = await resolveStream(firstHit.url);
-    check(info.streamUrl.startsWith('http') && info.durationSec > 60, 'no usable stream');
+    check(info.infoJson.length > 100 && info.durationSec > 60, 'no usable song details');
+    // The real pipeline: yt-dlp downloads → ffmpeg encodes 5 s of Opus.
     const ff = await findFfmpeg();
     const out = join(tmpdir(), `aj-smoke-${Date.now()}.ogg`);
-    const r = await runTool(
+    const dl = await downloadAudio(info);
+    const enc = spawn(
       ff,
       [
         '-hide_banner',
@@ -763,7 +766,7 @@ try {
         'error',
         '-y',
         '-i',
-        info.streamUrl,
+        'pipe:0',
         '-t',
         '5',
         '-vn',
@@ -775,11 +778,18 @@ try {
         'ogg',
         out,
       ],
-      60_000,
+      {
+        stdio: ['pipe', 'ignore', 'pipe'],
+      },
     );
-    const size = r.code === 0 ? statSync(out).size : 0;
+    dl.proc.stdout.on('error', () => undefined);
+    enc.stdin.on('error', () => undefined);
+    dl.proc.stdout.pipe(enc.stdin);
+    const code = await new Promise<number | null>((r) => enc.on('close', r));
+    dl.proc.kill('SIGKILL');
+    const size = code === 0 ? statSync(out).size : 0;
     rmSync(out, { force: true });
-    check(size > 20_000, `ffmpeg produced ${size} bytes (${r.stderr.slice(0, 200)})`);
+    check(size > 20_000, `the pipeline produced ${size} bytes`);
   });
 
   await step('Music: Spotify album is read without keys', async () => {
