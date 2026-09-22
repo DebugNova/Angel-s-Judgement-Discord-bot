@@ -44,6 +44,7 @@ import {
 } from './actions/staff.js';
 import { renderHistory, renderLeaderboard } from './commands/member.js';
 import { renderSearch } from './commands/staff.js';
+import { handleModerationButton } from './moderation/handlers.js';
 import { challengeEmbed, errorEmbed, helpEmbed, HELP_CATEGORIES, successEmbed } from './ui/embeds.js';
 import type { HelpCategory } from './ui/embeds.js';
 import { helpSelect, reasonModal, reportSelect, resetModal, serverLinkModal } from './ui/components.js';
@@ -382,6 +383,8 @@ export async function handleComponent(i: AnyComponent, ctx: Ctx): Promise<void> 
         return onMatchButton(i, ctx, action, args[0] ?? '');
       case 'r':
         return onReferee(i, ctx, action, args);
+      case 'mod':
+        return handleModerationButton(i, ctx, action, args);
       case 'x':
         await i.update({ content: 'Dismissed.', embeds: [], components: [] });
         return;
@@ -443,7 +446,8 @@ export async function handleComponent(i: AnyComponent, ctx: Ctx): Promise<void> 
 
   if (i.isRoleSelectMenu() && ns === 'cfg' && action === 'roles') {
     const kind = args[0] ?? '';
-    const required = kind === 'admin' ? PermissionLevel.OWNER : PermissionLevel.ADMIN;
+    const required =
+      kind === 'admin' || kind === 'moderation' ? PermissionLevel.OWNER : PermissionLevel.ADMIN;
     if (!hasLevel(ctx.level, required)) throw Errors.forbidden();
     const field =
       kind === 'referee'
@@ -452,7 +456,9 @@ export async function handleComponent(i: AnyComponent, ctx: Ctx): Promise<void> 
           ? 'moderatorRoleIds'
           : kind === 'admin'
             ? 'adminRoleIds'
-            : null;
+            : kind === 'moderation'
+              ? 'moderationRoleIds'
+              : null;
     if (!field) throw Errors.stale();
     const roleIds = [...i.roles.keys()].filter((id) => id !== ctx.guild.id);
     await updateConfig(ctx.guild.id, { [field]: roleIds });
@@ -463,7 +469,10 @@ export async function handleComponent(i: AnyComponent, ctx: Ctx): Promise<void> 
       metadata: { level: kind, roles: roleIds.join(',') || 'none' },
     });
     await i.update({
-      content: `✅ **${kind}** roles set to: ${roleIds.length > 0 ? roleIds.map((r) => `<@&${r}>`).join(' ') : 'none'}.\nNew match channels will grant these roles access.`,
+      content:
+        kind === 'moderation'
+          ? `✅ Moderation is now reserved for: ${roleIds.length > 0 ? roleIds.map((r) => `<@&${r}>`).join(' ') : 'nobody (moderation commands are off)'}.`
+          : `✅ **${kind}** roles set to: ${roleIds.length > 0 ? roleIds.map((r) => `<@&${r}>`).join(' ') : 'none'}.\nNew match channels will grant these roles access.`,
       components: [],
       allowedMentions: { parse: [] },
     });

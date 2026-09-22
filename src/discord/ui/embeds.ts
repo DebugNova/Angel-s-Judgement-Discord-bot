@@ -832,6 +832,20 @@ export const HELP_CATEGORIES = {
       'Tip: inside a match channel, `match_id` can be left empty.',
     ],
   },
+  moderation: {
+    label: 'Moderation',
+    emoji: '🔨',
+    lines: [
+      'Only members with the **moderation role** can use these — nobody else, whatever their rank.',
+      '`/warn` · `/warnings @member` (full record) · `/unwarn <case>`',
+      '`/timeout @member <duration>` · `/untimeout @member`',
+      '`/kick @member` · `/ban @user [delete_messages]` · `/unban <user>` (kick and ban ask to confirm)',
+      '`/purge <amount> [user] [bots] [attachments] [contains]` — delete recent messages here',
+      '`/role give|take @member @role` · `/role everyone @role` (preview → confirm → live progress)',
+      '`/slowmode <delay>` · `/lock` · `/unlock`',
+      'Every action gets a **case number** and is posted to the mod-log. `dm:` chooses whether the member is told.',
+    ],
+  },
   admin: {
     label: 'Admin',
     emoji: '🛡️',
@@ -839,6 +853,8 @@ export const HELP_CATEGORIES = {
       '`/config view` — Current configuration.',
       '`/config channel matches|history|logs|leaderboard|staff` — Pick channels.',
       '`/config roles referee|moderator|admin` — Pick staff roles.',
+      '`/config roles moderation` — The only roles allowed to moderate (owner only).',
+      '`/config channel modlog` · `/config moderation` — Mod-log channel, DM default.',
       '`/config elo` · `/config cooldown` · `/config challenge` · `/config matches`',
       '`/config leaderboard` · `/config display` · `/config season`',
       '`/resetstats` · `/player reset` — Guarded by a typed confirmation.',
@@ -907,6 +923,14 @@ export function configEmbed(theme: Theme, c: GuildConfig, season: Season | null)
           `Referee: ${roles(c.refereeRoleIds)}`,
           `Moderator: ${roles(c.moderatorRoleIds)}`,
           `Admin: ${roles(c.adminRoleIds)}`,
+        ].join('\n'),
+      },
+      {
+        name: 'Moderation',
+        value: [
+          `Allowed roles (only these): ${roles(c.moderationRoleIds)}`,
+          `Mod-log: ${c.modLogChannelId ? ch(c.modLogChannelId) : c.logChannelId ? `${ch(c.logChannelId)} (logs channel)` : '`not set`'}`,
+          `DM members: **${c.modDmMembers ? 'yes' : 'no'}** • Cases so far: **${c.modCaseCounter}**`,
         ].join('\n'),
       },
       {

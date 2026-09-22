@@ -18,7 +18,7 @@ import { reviewNotificationButtons } from '../ui/components.js';
 
 type Sendable = TextChannel | NewsChannel;
 
-async function sendableChannel(
+export async function sendableChannel(
   client: Client,
   guildId: string,
   channelId: string | null,
@@ -102,6 +102,8 @@ const logQueues = new Map<string, Promise<void>>();
 
 export function startLogMirror(client: Client): void {
   auditEvents.on('entry', (entry: AuditEntry) => {
+    // Moderation cases get a full case card from the mod-log instead (moderation/modlog.ts).
+    if (entry.action.startsWith('MOD_')) return;
     const prev = logQueues.get(entry.guildId) ?? Promise.resolve();
     const next = prev
       .then(async () => {

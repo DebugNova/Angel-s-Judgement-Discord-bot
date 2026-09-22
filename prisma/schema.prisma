@@ -90,6 +90,13 @@ model GuildConfig {
   moderatorRoleIds String[] @default([])
   adminRoleIds     String[] @default([])
 
+  // Moderation (/ban, /kick, /timeout, /warn, /purge, /role …): ONLY members holding one of
+  // these roles may use it — Discord Administrator and the bot levels above do not count.
+  moderationRoleIds String[] @default([])
+  modLogChannelId   String?
+  modDmMembers      Boolean  @default(true)
+  modCaseCounter    Int      @default(0)
+
   // ELO
   startingElo Int @default(1000)
   kFactor     Int @default(48)
@@ -417,4 +424,31 @@ model AuditLog {
   @@index([guildId, createdAt])
   @@index([guildId, action])
   @@index([matchId])
+}
+
+// ───────────────────────────── Moderation ─────────────────────────────
+
+/// One numbered moderation action (#1, #2 … per server). Warnings are cases with action WARN;
+/// removing a warning keeps the row and sets active = false.
+model ModCase {
+  id            String    @id @default(uuid())
+  guildId       String
+  caseNumber    Int
+  action        String
+  targetId      String?
+  targetName    String?
+  moderatorId   String
+  reason        String?
+  durationSec   Int?
+  channelId     String?
+  details       Json?
+  dmSent        Boolean?
+  active        Boolean   @default(true)
+  removedById   String?
+  removedAt     DateTime?
+  removedReason String?
+  createdAt     DateTime  @default(now())
+
+  @@unique([guildId, caseNumber])
+  @@index([guildId, targetId])
 }

@@ -41,6 +41,13 @@ export const Ids = {
   config: {
     roles: (kind: string) => `cfg:roles:${kind}`,
   },
+  mod: {
+    /** Confirm / cancel a pending action. The token points at an in-memory request that expires. */
+    confirm: (token: string) => `mod:ok:${token}`,
+    cancel: (token: string) => `mod:no:${token}`,
+    stopJob: (guildId: string) => `mod:stop:${guildId}`,
+    record: (targetId: string, page: number, owner: string) => `mod:rec:${targetId}:${page}:${owner}`,
+  },
   reset: {
     proceed: (scope: string, playerId: string, del: boolean) => `rs:go:${scope}:${playerId}:${del ? 1 : 0}`,
     modal: (scope: string, playerId: string, del: boolean) => `rs:md:${scope}:${playerId}:${del ? 1 : 0}`,

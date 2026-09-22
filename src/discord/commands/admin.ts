@@ -20,8 +20,10 @@ const guildOnly = [InteractionContextType.Guild];
 const EPHEMERAL = MessageFlags.Ephemeral;
 const TEXT_TYPES = [ChannelType.GuildText, ChannelType.GuildAnnouncement] as const;
 
-type ChannelKey = 'historyChannelId' | 'logChannelId' | 'leaderboardChannelId' | 'staffChannelId';
+type ChannelKey =
+  'historyChannelId' | 'logChannelId' | 'leaderboardChannelId' | 'staffChannelId' | 'modLogChannelId';
 const CHANNEL_KEYS: Record<string, ChannelKey> = {
+  modlog: 'modLogChannelId',
   history: 'historyChannelId',
   logs: 'logChannelId',
   leaderboard: 'leaderboardChannelId',
@@ -122,6 +124,18 @@ const configCommand: SlashCommand = {
         )
         .addSubcommand((s) =>
           s
+            .setName('modlog')
+            .setDescription('Where every moderation case is posted (default: the logs channel)')
+            .addChannelOption((o) =>
+              o
+                .setName('channel')
+                .setDescription('A text channel (keep it staff-only)')
+                .addChannelTypes(...TEXT_TYPES)
+                .setRequired(true),
+            ),
+        )
+        .addSubcommand((s) =>
+          s
             .setName('clear')
             .setDescription('Unset one of the channels')
             .addStringOption((o) =>
@@ -135,6 +149,7 @@ const configCommand: SlashCommand = {
                   { name: 'logs', value: 'logs' },
                   { name: 'leaderboard', value: 'leaderboard' },
                   { name: 'staff', value: 'staff' },
+                  { name: 'modlog', value: 'modlog' },
                 ),
             ),
         ),
@@ -144,15 +159,28 @@ const configCommand: SlashCommand = {
         .setName('roles')
         .setDescription('Choose which roles get staff powers')
         .addStringOption((o) =>
+          o.setName('level').setDescription('Permission level').setRequired(true).addChoices(
+            { name: 'referee — review disputes, decide results', value: 'referee' },
+            { name: 'moderator — cancel, force-complete, restrict players', value: 'moderator' },
+            { name: 'admin — configuration and resets (owner only)', value: 'admin' },
+            {
+              name: 'moderation — the ONLY roles allowed to /ban /kick /warn… (owner only)',
+              value: 'moderation',
+            },
+          ),
+        ),
+    )
+    .addSubcommand((s) =>
+      s
+        .setName('moderation')
+        .setDescription('Moderation settings')
+        .addBooleanOption((o) =>
           o
-            .setName('level')
-            .setDescription('Permission level')
-            .setRequired(true)
-            .addChoices(
-              { name: 'referee — review disputes, decide results', value: 'referee' },
-              { name: 'moderator — cancel, force-complete, restrict players', value: 'moderator' },
-              { name: 'admin — configuration and resets (owner only)', value: 'admin' },
-            ),
+            .setName('dm_members')
+            .setDescription(
+              'By default, tell members by DM when they are warned, timed out, kicked or banned',
+            )
+            .setRequired(true),
         ),
     )
     .addSubcommand((s) =>
@@ -380,13 +408,15 @@ const configCommand: SlashCommand = {
       }
       case 'roles': {
         const level = i.options.getString('level', true);
-        if (level === 'admin') requireLevel(ctx, PermissionLevel.OWNER);
+        if (level === 'admin' || level === 'moderation') requireLevel(ctx, PermissionLevel.OWNER);
         const current =
           level === 'referee'
             ? ctx.config.refereeRoleIds
             : level === 'moderator'
               ? ctx.config.moderatorRoleIds
-              : ctx.config.adminRoleIds;
+              : level === 'moderation'
+                ? ctx.config.moderationRoleIds
+                : ctx.config.adminRoleIds;
         await i.reply({
           content: `Select the **${level}** roles. Your selection replaces the current list.`,
           components: roleSelect(level, current),
@@ -486,6 +516,16 @@ const configCommand: SlashCommand = {
         if (Object.keys(data).length === 0) throw nothingChanged();
         await saveConfig(i, ctx, data, 'Leaderboard settings updated.');
         await refreshLeaderboardPanel(i.client, ctx.guild.id);
+        return;
+      }
+      case 'moderation': {
+        const dm = i.options.getBoolean('dm_members', true);
+        await saveConfig(
+          i,
+          ctx,
+          { modDmMembers: dm },
+          `Members ${dm ? '**will**' : 'will **not**'} be told by DM by default. Moderators can still choose per action with the \`dm\` option.`,
+        );
         return;
       }
       case 'display': {

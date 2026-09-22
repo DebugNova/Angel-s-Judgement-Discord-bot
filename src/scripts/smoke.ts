@@ -60,6 +60,25 @@ import * as E from '../discord/ui/embeds.js';
 import * as C from '../discord/ui/components.js';
 import { commands } from '../discord/commands/index.js';
 import { Ids } from '../discord/ids.js';
+import type { Ctx } from '../discord/context.js';
+import {
+  changeRole,
+  lockChannel,
+  planBan,
+  planKick,
+  purgeMessages,
+  setSlowmode,
+  timeoutMember,
+  unlockChannel,
+  untimeoutMember,
+  warnMember,
+} from '../discord/moderation/actions.js';
+import { renderRecord } from '../discord/moderation/commands.js';
+import { runningJob, startMassRole } from '../discord/moderation/massrole.js';
+import { startModLog } from '../discord/moderation/modlog.js';
+import * as M from '../discord/ui/moderation.js';
+import { memberRecord, removeWarning } from '../modules/moderation/cases.service.js';
+import { PermissionLevel } from '../modules/permissions/permissions.js';
 import { connectForScript } from './db-connect.js';
 
 const keep = process.argv.includes('--keep');
@@ -113,6 +132,7 @@ const client = new Client({ intents: [GatewayIntentBits.Guilds, GatewayIntentBit
 await client.login(env.DISCORD_TOKEN);
 await new Promise<void>((r) => (client.isReady() ? r() : client.once('clientReady', () => r())));
 startLogMirror(client);
+startModLog(client);
 
 const guild: Guild | undefined = env.DISCORD_GUILD_ID
   ? client.guilds.cache.get(env.DISCORD_GUILD_ID)
@@ -458,7 +478,7 @@ try {
       ],
       components: C.pagerRow(theme, (p) => `smoke:${p}`, 0, 3),
     });
-    for (const cat of [null, 'duel', 'stats', 'matches', 'staff', 'admin'] as const) {
+    for (const cat of [null, 'duel', 'stats', 'matches', 'staff', 'moderation', 'admin'] as const) {
       await g.send({ embeds: [E.helpEmbed(theme, cat)], components: C.helpSelect(theme, cat) });
     }
     const search = await searchMatches({ guildId: guild.id }, 0, 10);
@@ -504,7 +524,7 @@ try {
     C.serverLinkModal(any.id).toJSON();
     C.reasonModal(Ids.referee.reasonModal(any.id, p1.id, 'd'), 'Decision reason').toJSON();
     C.resetModal(Ids.reset.modal('all', '-', true)).toJSON();
-    check(commands.length === 16, 'unexpected command count');
+    check(commands.length === 29, 'unexpected command count');
   });
 
   // ───── Cleanup job + crash recovery ─────
@@ -555,6 +575,166 @@ try {
     check(msgs.size > 5, `only ${msgs.size} log messages`);
   });
 
+  // ───── Moderation (the stand-in bots are the targets; nobody is kicked or banned for real) ─────
+  const owner = await guild.members.fetch(guild.ownerId);
+  const modCtx = async (): Promise<Ctx> => {
+    const c = await cfg();
+    return { guild, member: owner, config: c, level: PermissionLevel.OWNER, theme: themeFor(c, client) };
+  };
+  let modLog: TextChannel | null = null;
+  let tempRoleId: string | null = null;
+  const casesBefore = (await cfg()).modCaseCounter;
+
+  await step('Moderation: warn → numbered case → record → remove warning', async () => {
+    modLog = await guild.channels.create({
+      name: 'mod-log',
+      type: ChannelType.GuildText,
+      parent: category!.id,
+    });
+    created.push(modLog.id);
+    await updateConfig(guild.id, { modLogChannelId: modLog.id });
+    const done = await warnMember(await modCtx(), {
+      targetId: m1.id,
+      reason: 'smoke test warning',
+      dm: true,
+    });
+    check(done.data.title?.includes('Case #'), 'no case number in the result');
+    const rec = await memberRecord(guild.id, m1.id, 0);
+    check(rec.activeWarnings === 1, `expected 1 active warning, got ${rec.activeWarnings}`);
+    const removed = await removeWarning({
+      guildId: guild.id,
+      caseNumber: rec.cases[0]!.caseNumber,
+      actorId: owner.id,
+    });
+    check(!removed.active, 'warning not removed');
+  });
+
+  await step('Moderation: timeout and remove the timeout of a stand-in bot', async () => {
+    await timeoutMember(await modCtx(), { targetId: m1.id, reason: 'smoke', dm: false, durationSec: 60 });
+    const timed = await guild.members.fetch({ user: m1.id, force: true });
+    check(timed.isCommunicationDisabled(), 'member is not timed out on Discord');
+    await untimeoutMember(await modCtx(), { targetId: m1.id, reason: 'smoke', dm: false });
+    const free = await guild.members.fetch({ user: m1.id, force: true });
+    check(!free.isCommunicationDisabled(), 'timeout was not removed on Discord');
+  });
+
+  await step('Moderation: ban/kick safety checks (the owner and the bot are refused)', async () => {
+    const c = await modCtx();
+    const refused = async (fn: () => Promise<unknown>) =>
+      fn().then(
+        () => false,
+        (err: unknown) => err instanceof Error && 'code' in err && err.code === 'MOD_REFUSED',
+      );
+    check(await refused(() => planBan(c, guild.ownerId)), 'banning the owner was not refused');
+    check(await refused(() => planKick(c, client.user!.id)), 'kicking the bot was not refused');
+    // A real target passes every check (nothing is executed: the stand-in bot stays).
+    await planBan(c, m1.id);
+    await planKick(c, m1.id);
+  });
+
+  await step('Moderation: give/take one role, then role-for-everyone with live progress', async () => {
+    const role = await guild.roles.create({ name: 'aj-smoke-role', permissions: [], reason: 'smoke test' });
+    tempRoleId = role.id;
+    await changeRole(await modCtx(), { targetId: m1.id, roleId: role.id, give: true, reason: 'smoke' });
+    check(
+      (await guild.members.fetch({ user: m1.id, force: true })).roles.cache.has(role.id),
+      'role not given',
+    );
+    await changeRole(await modCtx(), { targetId: m1.id, roleId: role.id, give: false, reason: 'smoke' });
+    check(
+      !(await guild.members.fetch({ user: m1.id, force: true })).roles.cache.has(role.id),
+      'role not taken',
+    );
+
+    for (const give of [true, false]) {
+      await startMassRole(await modCtx(), g, { roleId: role.id, give, includeBots: true, reason: 'smoke' });
+      for (let t = 0; t < 120 && runningJob(guild.id); t++) await sleep(500);
+      check(!runningJob(guild.id), 'role-for-everyone run did not finish');
+      const members = await guild.members.list({ limit: 1000 });
+      const withRole = members.filter((m) => m.roles.cache.has(role.id)).size;
+      check(
+        give ? withRole === members.size : withRole === 0,
+        `after ${give ? 'give' : 'take'}: ${withRole}/${members.size} have the role`,
+      );
+    }
+  });
+
+  await step('Moderation: purge deletes only matching messages', async () => {
+    for (const text of ['keep 1', 'purge-me 1', 'keep 2', 'purge-me 2', 'purge-me 3']) await g.send(text);
+    await purgeMessages(await modCtx(), g, { amount: 10, filter: { contains: 'purge-me' }, reason: 'smoke' });
+    const left = await g.messages.fetch({ limit: 20 });
+    check(!left.some((m) => m.content.startsWith('purge-me')), 'a matching message survived');
+    check(left.filter((m) => m.content.startsWith('keep')).size === 2, 'a non-matching message was deleted');
+  });
+
+  await step('Moderation: slowmode, lock and unlock (permissions restored exactly)', async () => {
+    const ch = await guild.channels.create({
+      name: 'mod-test',
+      type: ChannelType.GuildText,
+      parent: category!.id,
+    });
+    created.push(ch.id);
+    await setSlowmode(await modCtx(), ch, { seconds: 10, reason: 'smoke' });
+    check((await ch.fetch()).rateLimitPerUser === 10, 'slowmode not set');
+    await setSlowmode(await modCtx(), ch, { seconds: 0, reason: 'smoke' });
+    const before = ch.permissionOverwrites.cache.get(guild.roles.everyone.id);
+    const beforeState = `${before?.allow.bitfield ?? 0n}/${before?.deny.bitfield ?? 0n}`;
+    await lockChannel(await modCtx(), ch, { reason: 'smoke', notify: true });
+    const locked = (await ch.fetch()).permissionOverwrites.cache.get(guild.roles.everyone.id);
+    check(locked?.deny.has(PermissionFlagsBits.SendMessages), 'channel not locked');
+    await unlockChannel(await modCtx(), ch, { reason: 'smoke', notify: true });
+    const after = (await ch.fetch()).permissionOverwrites.cache.get(guild.roles.everyone.id);
+    check(
+      `${after?.allow.bitfield ?? 0n}/${after?.deny.bitfield ?? 0n}` === beforeState,
+      'permissions not restored',
+    );
+  });
+
+  await step('Moderation: every case is posted to the mod-log; all moderation screens render', async () => {
+    const cases = (await cfg()).modCaseCounter - casesBefore;
+    let posted = 0;
+    for (let t = 0; t < 20; t++) {
+      posted = (await modLog!.messages.fetch({ limit: 50 })).filter((m) =>
+        m.embeds[0]?.title?.includes('Case #'),
+      ).size;
+      if (posted >= cases) break;
+      await sleep(500);
+    }
+    check(posted === cases, `${cases} cases but ${posted} case cards in the mod-log`);
+    const c = await modCtx();
+    const all = await db().modCase.findMany({ where: { guildId: guild.id }, orderBy: { caseNumber: 'asc' } });
+    for (let k = 0; k < all.length; k += 10) {
+      await g.send({ embeds: all.slice(k, k + 10).map((x) => M.caseEmbed(c.theme, x)) });
+    }
+    await g.send({
+      embeds: [
+        M.confirmEmbed(c.theme, {
+          action: 'BAN',
+          title: 'Confirm ban',
+          lines: ['Member: test', 'Reason: test'],
+        }),
+        M.dmEmbed(c.theme, { action: 'TIMEOUT', guildName: guild.name, reason: 'test', durationSec: 600 }),
+        M.lockNoticeEmbed(c.theme, true, 'test'),
+        M.massRoleProgressEmbed(c.theme, {
+          roleId: tempRoleId ?? guild.id,
+          give: true,
+          total: 10,
+          done: 4,
+          failed: 1,
+          left: 0,
+          startedAt: Date.now() - 5000,
+          state: 'running',
+          moderatorId: owner.id,
+        }),
+      ],
+      components: [
+        ...M.confirmButtons(c.theme, 'smoketoken', 'Ban', '🔨'),
+        ...M.stopJobButton(c.theme, guild.id),
+      ],
+    });
+    await g.send(await renderRecord(c, m1.id, 0, owner.id));
+  });
+
   await step(
     'Automatic backup is saved, uploaded to a private channel only, and can be read back',
     async () => {
@@ -599,6 +779,8 @@ try {
   console.log('\n🧹 Cleaning up…');
   if (!keep) {
     for (const id of created.reverse()) await guild.channels.delete(id).catch(() => undefined);
+    const tempRole = guild.roles.cache.find((r) => r.name === 'aj-smoke-role');
+    if (tempRole) await tempRole.delete('smoke test cleanup').catch(() => undefined);
   } else {
     console.log('   --keep: test channels left in "🧪 aj-smoke-test" — delete that category when done.');
   }

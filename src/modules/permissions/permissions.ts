@@ -48,3 +48,15 @@ export function resolveLevel(
 export function hasLevel(actual: PermissionLevel, required: PermissionLevel): boolean {
   return actual >= required;
 }
+
+/**
+ * Moderation (/ban, /kick, /timeout, /warn, /purge, /role …) is separate from the levels above:
+ * ONLY members holding one of the configured moderation roles may use it. Being the server
+ * owner, a Discord Administrator or a bot admin does not count.
+ */
+export function hasModerationAccess(
+  memberRoleIds: readonly string[],
+  config: { moderationRoleIds: readonly string[] },
+): boolean {
+  return config.moderationRoleIds.some((id) => memberRoleIds.includes(id));
+}

@@ -38,6 +38,9 @@ export const AuditAction = {
   CHANNEL_DELETED: 'CHANNEL_DELETED',
   CHANNEL_RECREATED: 'CHANNEL_RECREATED',
   ORPHAN_DETECTED: 'ORPHAN_DETECTED',
+  /** A moderation case (#n); the mod-log shows it as a full case card instead of a generic line. */
+  MOD_CASE: 'MOD_CASE',
+  MOD_WARNING_REMOVED: 'MOD_WARNING_REMOVED',
 } as const;
 export type AuditActionName = (typeof AuditAction)[keyof typeof AuditAction];
 

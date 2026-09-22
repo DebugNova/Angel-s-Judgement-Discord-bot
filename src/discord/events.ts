@@ -13,6 +13,7 @@ import { handleComponent } from './components.js';
 import { commandLimiter, rearmChallengeTimers, recoverGuild, startScheduler } from './jobs.js';
 import { matchChannelIds } from './managers/channels.js';
 import { startLogMirror } from './managers/notify.js';
+import { startModLog } from './moderation/modlog.js';
 import { noteChannelActivity } from './managers/panel.js';
 import { startPresence } from './presence.js';
 import { startAutoBackups } from './backups.js';
@@ -150,13 +151,14 @@ async function onReady(client: Client<true>): Promise<void> {
   startAutoBackups(client);
   if (client.guilds.cache.size === 0) {
     log.warn('NO_GUILDS', {
-      invite: `https://discord.com/oauth2/authorize?client_id=${client.user.id}&permissions=268561488&scope=bot%20applications.commands`,
+      invite: `https://discord.com/oauth2/authorize?client_id=${client.user.id}&permissions=1099780001270&scope=bot%20applications.commands`,
     });
   }
 }
 
 export function registerEvents(client: Client): void {
   startLogMirror(client);
+  startModLog(client);
   client.once(
     Events.ClientReady,
     (c) => void onReady(c).catch((err: unknown) => log.error('READY_FAILED', undefined, err)),

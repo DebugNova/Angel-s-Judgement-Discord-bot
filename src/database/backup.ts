@@ -13,7 +13,7 @@ export interface BackupFile {
 }
 
 const ALL_TABLES =
-  '"AuditLog","Cooldown","MatchNote","Evidence","EloHistory","MatchResult","MatchParticipant","Match","Challenge","Season","Player","GuildConfig"';
+  '"ModCase","AuditLog","Cooldown","MatchNote","Evidence","EloHistory","MatchResult","MatchParticipant","Match","Challenge","Season","Player","GuildConfig"';
 
 /** Logical export of every table (portable JSON; no pg_dump needed). */
 export async function exportAll(): Promise<BackupFile> {
@@ -34,6 +34,7 @@ export async function exportAll(): Promise<BackupFile> {
       matchNote: await c.matchNote.findMany(),
       cooldown: await c.cooldown.findMany(),
       auditLog: await c.auditLog.findMany(),
+      modCase: await c.modCase.findMany(),
     },
   };
 }
@@ -58,6 +59,10 @@ export async function importAll(backup: BackupFile): Promise<void> {
       await tx.cooldown.createMany({ data: rows('cooldown') as never });
       await tx.auditLog.createMany({
         data: rows('auditLog').map((r) => ({ ...r, metadata: r.metadata ?? undefined })) as never,
+      });
+      // Backups made before moderation existed simply have no modCase rows.
+      await tx.modCase.createMany({
+        data: rows('modCase').map((r) => ({ ...r, details: r.details ?? undefined })) as never,
       });
     },
     { timeout: 300_000 },

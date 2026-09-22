@@ -76,3 +76,24 @@ export const StatusLines: ((s: StatusStats) => { kind: StatusKind; text: string 
   () => ({ kind: 'listening', text: '/help' }),
   () => ({ kind: 'custom', text: '✨ Seven Angels. One Judgement.' }),
 ];
+
+/** Moderation wording: the closing line on each case card, DM and confirmation. */
+export const ModLore = {
+  WARN: 'A mark of warning is set upon them.',
+  TIMEOUT: 'Their voice is stilled for a time.',
+  UNTIMEOUT: 'Their voice is restored.',
+  KICK: 'Sent beyond the gates.',
+  BAN: 'Cast out from the Seven Angels.',
+  UNBAN: 'The gates open to them once more.',
+  PURGE: 'The hall is cleansed.',
+  ROLE_ADD: 'A mantle is bestowed.',
+  ROLE_REMOVE: 'A mantle is taken away.',
+  ROLE_ALL_ADD: 'A mantle is bestowed upon the whole host.',
+  ROLE_ALL_REMOVE: 'A mantle is lifted from the whole host.',
+  SLOWMODE: 'Time slows within this hall.',
+  LOCK: 'The gates of this hall are sealed.',
+  UNLOCK: 'The gates of this hall are open once more.',
+  WARNING_REMOVED: 'The mark is lifted.',
+  confirm: 'Judgement is final. Be certain.',
+  dmFooter: 'If you believe this was a mistake, reach out to the server staff.',
+} as const;
