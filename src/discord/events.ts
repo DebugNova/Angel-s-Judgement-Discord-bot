@@ -14,6 +14,7 @@ import { commandLimiter, rearmChallengeTimers, recoverGuild, startScheduler } fr
 import { matchChannelIds } from './managers/channels.js';
 import { startLogMirror } from './managers/notify.js';
 import { startModLog } from './moderation/modlog.js';
+import { registerMusicEvents, startMusic } from './music/lifecycle.js';
 import { noteChannelActivity } from './managers/panel.js';
 import { startPresence } from './presence.js';
 import { startAutoBackups } from './backups.js';
@@ -149,9 +150,10 @@ async function onReady(client: Client<true>): Promise<void> {
   await rearmChallengeTimers(client);
   startScheduler(client);
   startAutoBackups(client);
+  await startMusic(client);
   if (client.guilds.cache.size === 0) {
     log.warn('NO_GUILDS', {
-      invite: `https://discord.com/oauth2/authorize?client_id=${client.user.id}&permissions=1099780001270&scope=bot%20applications.commands`,
+      invite: `https://discord.com/oauth2/authorize?client_id=${client.user.id}&permissions=1099783334998&scope=bot%20applications.commands`,
     });
   }
 }
@@ -159,6 +161,7 @@ async function onReady(client: Client<true>): Promise<void> {
 export function registerEvents(client: Client): void {
   startLogMirror(client);
   startModLog(client);
+  registerMusicEvents(client);
   client.once(
     Events.ClientReady,
     (c) => void onReady(c).catch((err: unknown) => log.error('READY_FAILED', undefined, err)),

@@ -167,6 +167,7 @@ const configCommand: SlashCommand = {
               name: 'moderation — the ONLY roles allowed to /ban /kick /warn… (owner only)',
               value: 'moderation',
             },
+            { name: 'dj — control the music (none set = everyone can)', value: 'dj' },
           ),
         ),
     )
@@ -416,7 +417,9 @@ const configCommand: SlashCommand = {
               ? ctx.config.moderatorRoleIds
               : level === 'moderation'
                 ? ctx.config.moderationRoleIds
-                : ctx.config.adminRoleIds;
+                : level === 'dj'
+                  ? ctx.config.musicDjRoleIds
+                  : ctx.config.adminRoleIds;
         await i.reply({
           content: `Select the **${level}** roles. Your selection replaces the current list.`,
           components: roleSelect(level, current),

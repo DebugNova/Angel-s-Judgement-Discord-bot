@@ -45,6 +45,7 @@ import {
 import { renderHistory, renderLeaderboard } from './commands/member.js';
 import { renderSearch } from './commands/staff.js';
 import { handleModerationButton } from './moderation/handlers.js';
+import { handleMusicComponent } from './music/handlers.js';
 import { challengeEmbed, errorEmbed, helpEmbed, HELP_CATEGORIES, successEmbed } from './ui/embeds.js';
 import type { HelpCategory } from './ui/embeds.js';
 import { helpSelect, reasonModal, reportSelect, resetModal, serverLinkModal } from './ui/components.js';
@@ -385,6 +386,8 @@ export async function handleComponent(i: AnyComponent, ctx: Ctx): Promise<void> 
         return onReferee(i, ctx, action, args);
       case 'mod':
         return handleModerationButton(i, ctx, action, args);
+      case 'mu':
+        return handleMusicComponent(i, ctx, action, args);
       case 'x':
         await i.update({ content: 'Dismissed.', embeds: [], components: [] });
         return;
@@ -432,6 +435,7 @@ export async function handleComponent(i: AnyComponent, ctx: Ctx): Promise<void> 
   }
 
   if (i.isStringSelectMenu()) {
+    if (ns === 'mu') return handleMusicComponent(i, ctx, action, args);
     if (ns === 'm' && action === 'repsel') return onReportSelect(i, ctx, args[0] ?? '');
     if (i.customId === Ids.help) {
       const value = i.values[0] ?? '';
@@ -458,7 +462,9 @@ export async function handleComponent(i: AnyComponent, ctx: Ctx): Promise<void> 
             ? 'adminRoleIds'
             : kind === 'moderation'
               ? 'moderationRoleIds'
-              : null;
+              : kind === 'dj'
+                ? 'musicDjRoleIds'
+                : null;
     if (!field) throw Errors.stale();
     const roleIds = [...i.roles.keys()].filter((id) => id !== ctx.guild.id);
     await updateConfig(ctx.guild.id, { [field]: roleIds });
@@ -472,7 +478,9 @@ export async function handleComponent(i: AnyComponent, ctx: Ctx): Promise<void> 
       content:
         kind === 'moderation'
           ? `✅ Moderation is now reserved for: ${roleIds.length > 0 ? roleIds.map((r) => `<@&${r}>`).join(' ') : 'nobody (moderation commands are off)'}.`
-          : `✅ **${kind}** roles set to: ${roleIds.length > 0 ? roleIds.map((r) => `<@&${r}>`).join(' ') : 'none'}.\nNew match channels will grant these roles access.`,
+          : kind === 'dj'
+            ? `✅ Music DJs: ${roleIds.length > 0 ? `${roleIds.map((r) => `<@&${r}>`).join(' ')} (others can add songs and vote to skip)` : 'none, so everyone in the voice channel controls the music'}.`
+            : `✅ **${kind}** roles set to: ${roleIds.length > 0 ? roleIds.map((r) => `<@&${r}>`).join(' ') : 'none'}.\nNew match channels will grant these roles access.`,
       components: [],
       allowedMentions: { parse: [] },
     });

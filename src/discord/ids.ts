@@ -48,6 +48,13 @@ export const Ids = {
     stopJob: (guildId: string) => `mod:stop:${guildId}`,
     record: (targetId: string, page: number, owner: string) => `mod:rec:${targetId}:${page}:${owner}`,
   },
+  music: {
+    /** Player panel buttons: back, toggle, skip, stop, shuffle, loop, vdown, vup, queue. */
+    control: (action: string) => `mu:${action}`,
+    queuePage: (page: number, owner: string) => `mu:qp:${page}:${owner}`,
+    queueJump: (owner: string) => `mu:qj:${owner}`,
+    pick: (token: string) => `mu:pick:${token}`,
+  },
   reset: {
     proceed: (scope: string, playerId: string, del: boolean) => `rs:go:${scope}:${playerId}:${del ? 1 : 0}`,
     modal: (scope: string, playerId: string, del: boolean) => `rs:md:${scope}:${playerId}:${del ? 1 : 0}`,

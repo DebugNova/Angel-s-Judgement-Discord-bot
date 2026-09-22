@@ -77,7 +77,7 @@ On <https://discord.com/developers/applications> → your application:
 Invite link (bot + slash commands, only the permissions it needs):
 
 ```
-https://discord.com/oauth2/authorize?client_id=1551652614566051931&permissions=1099780001270&scope=bot%20applications.commands
+https://discord.com/oauth2/authorize?client_id=1551652614566051931&permissions=1099783334998&scope=bot%20applications.commands
 ```
 
 | Permission | Why |

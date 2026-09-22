@@ -19,7 +19,7 @@ export const REF = who(90);
 
 export async function resetDb(): Promise<void> {
   await db().$executeRawUnsafe(
-    'TRUNCATE "ModCase","AuditLog","Cooldown","MatchNote","Evidence","EloHistory","MatchResult","MatchParticipant","Match","Challenge","Season","Player","GuildConfig" CASCADE',
+    'TRUNCATE "MusicPlaylist","MusicSession","ModCase","AuditLog","Cooldown","MatchNote","Evidence","EloHistory","MatchResult","MatchParticipant","Match","Challenge","Season","Player","GuildConfig" CASCADE',
   );
   invalidateConfig(GUILD);
 }

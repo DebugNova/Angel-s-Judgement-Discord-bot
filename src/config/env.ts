@@ -41,6 +41,10 @@ const schema = z
     ),
     BACKUP_INTERVAL_MINUTES: int(60, 0, 10_080),
     BACKUP_KEEP: int(48, 1, 1000),
+    // Music helpers (optional overrides; read by src/modules/music/tools.ts)
+    FFMPEG_PATH: optionalString,
+    YTDLP_PATH: optionalString,
+    TOOLS_DIR: optionalString,
   })
   .superRefine((env, ctx) => {
     if (!env.EMBEDDED_DB && !env.DATABASE_URL) {

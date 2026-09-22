@@ -97,6 +97,13 @@ model GuildConfig {
   modDmMembers      Boolean  @default(true)
   modCaseCounter    Int      @default(0)
 
+  // Music
+  /// With DJ roles set, only DJs (and moderators/admins) control playback; others vote to skip.
+  musicDjRoleIds    String[] @default([])
+  musicVolume       Int      @default(80)
+  /// 24/7: stay in the voice channel even when the queue ends or everyone leaves.
+  music247          Boolean  @default(false)
+
   // ELO
   startingElo Int @default(1000)
   kFactor     Int @default(48)
@@ -451,4 +458,33 @@ model ModCase {
 
   @@unique([guildId, caseNumber])
   @@index([guildId, targetId])
+}
+
+// ───────────────────────────── Music ─────────────────────────────
+
+/// What is playing in a server, saved every few seconds so music carries on after a restart.
+model MusicSession {
+  guildId        String   @id
+  voiceChannelId String
+  textChannelId  String?
+  /// The queue (tracks, current index, loop mode) as JSON.
+  queue          Json
+  positionSec    Int      @default(0)
+  paused         Boolean  @default(false)
+  volume         Int      @default(80)
+  updatedAt      DateTime @updatedAt
+}
+
+/// A member's saved playlist (/playlist save|load).
+model MusicPlaylist {
+  id        String   @id @default(uuid())
+  guildId   String
+  ownerId   String
+  name      String
+  tracks    Json
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@unique([guildId, ownerId, name])
+  @@index([guildId, ownerId])
 }

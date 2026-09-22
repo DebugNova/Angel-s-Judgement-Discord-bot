@@ -97,3 +97,12 @@ export const ModLore = {
   confirm: 'Judgement is final. Be certain.',
   dmFooter: 'If you believe this was a mistake, reach out to the server staff.',
 } as const;
+
+/** Music wording: kept short and plain, one lore line per screen. */
+export const MusicLore = {
+  nowPlaying: 'The choir sings for the Seven Angels.',
+  paused: 'The choir rests.',
+  queueEnd: 'The choir falls silent. Add more with /play.',
+  stopped: 'The choir has left the hall.',
+  resumed: 'The choir returns after a restart.',
+} as const;

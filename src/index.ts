@@ -11,6 +11,7 @@ import { registerEvents } from './discord/events.js';
 import { stopScheduler } from './discord/jobs.js';
 import { stopPresence } from './discord/presence.js';
 import { stopAutoBackups } from './discord/backups.js';
+import { shutdownMusic } from './discord/music/lifecycle.js';
 
 // Registered before anything else so no failure during startup can go unlogged.
 process.on('unhandledRejection', (reason) => log.error('UNHANDLED_REJECTION', undefined, reason));
@@ -36,7 +37,13 @@ async function main(): Promise<void> {
   log.info('DATABASE_CONNECTED');
 
   const client = new Client({
-    intents: [GatewayIntentBits.Guilds, GatewayIntentBits.GuildMessages, GatewayIntentBits.MessageContent],
+    // GuildVoiceStates (music: who is in which voice channel) is not a privileged intent.
+    intents: [
+      GatewayIntentBits.Guilds,
+      GatewayIntentBits.GuildMessages,
+      GatewayIntentBits.MessageContent,
+      GatewayIntentBits.GuildVoiceStates,
+    ],
     partials: [Partials.Channel],
     makeCache: Options.cacheWithLimits({
       ...Options.DefaultMakeCacheSettings,
@@ -55,6 +62,8 @@ async function main(): Promise<void> {
     stopScheduler();
     stopPresence();
     stopAutoBackups();
+    // Remember what was playing (queue + position) so music resumes after the restart.
+    await shutdownMusic().catch(() => undefined);
     await client.destroy().catch(() => undefined);
     await disconnectDb().catch(() => undefined);
     await embedded?.stop().catch(() => undefined);

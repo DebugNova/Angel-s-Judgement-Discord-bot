@@ -79,6 +79,15 @@ import { startModLog } from '../discord/moderation/modlog.js';
 import * as M from '../discord/ui/moderation.js';
 import { memberRecord, removeWarning } from '../modules/moderation/cases.service.js';
 import { PermissionLevel } from '../modules/permissions/permissions.js';
+import { tmpdir } from 'node:os';
+import { join } from 'node:path';
+import { statSync } from 'node:fs';
+import { renderQueue } from '../discord/music/commands.js';
+import { GuildPlayer, getPlayer } from '../discord/music/player.js';
+import type { Track } from '../modules/music/queue.js';
+import { resolveStream, searchYouTube } from '../modules/music/resolver.js';
+import { fetchSpotify } from '../modules/music/spotify.js';
+import { findFfmpeg, run as runTool, ytdlp } from '../modules/music/tools.js';
 import { connectForScript } from './db-connect.js';
 
 const keep = process.argv.includes('--keep');
@@ -128,7 +137,9 @@ await runMigrations(process.env.DATABASE_URL ?? '');
 console.log('📦 Backing up the database (restored at the end)…');
 const backup = await exportAll();
 
-const client = new Client({ intents: [GatewayIntentBits.Guilds, GatewayIntentBits.GuildMessages] });
+const client = new Client({
+  intents: [GatewayIntentBits.Guilds, GatewayIntentBits.GuildMessages, GatewayIntentBits.GuildVoiceStates],
+});
 await client.login(env.DISCORD_TOKEN);
 await new Promise<void>((r) => (client.isReady() ? r() : client.once('clientReady', () => r())));
 startLogMirror(client);
@@ -478,7 +489,7 @@ try {
       ],
       components: C.pagerRow(theme, (p) => `smoke:${p}`, 0, 3),
     });
-    for (const cat of [null, 'duel', 'stats', 'matches', 'staff', 'moderation', 'admin'] as const) {
+    for (const cat of [null, 'duel', 'stats', 'matches', 'staff', 'music', 'moderation', 'admin'] as const) {
       await g.send({ embeds: [E.helpEmbed(theme, cat)], components: C.helpSelect(theme, cat) });
     }
     const search = await searchMatches({ guildId: guild.id }, 0, 10);
@@ -524,7 +535,7 @@ try {
     C.serverLinkModal(any.id).toJSON();
     C.reasonModal(Ids.referee.reasonModal(any.id, p1.id, 'd'), 'Decision reason').toJSON();
     C.resetModal(Ids.reset.modal('all', '-', true)).toJSON();
-    check(commands.length === 29, 'unexpected command count');
+    check(commands.length === 37, 'unexpected command count');
   });
 
   // ───── Cleanup job + crash recovery ─────
@@ -730,6 +741,99 @@ try {
       components: [...M.confirmButtons('smoketoken', 'Ban'), ...M.stopJobButton(guild.id)],
     });
     await g.send(await renderRecord(c, m1.id, 0, owner.id));
+  });
+
+  // ───── Music ─────
+  let firstHit: Awaited<ReturnType<typeof searchYouTube>>[number] | null = null;
+
+  await step('Music: YouTube search → stream → ffmpeg encodes Discord audio', async () => {
+    await ytdlp();
+    const hits = await searchYouTube('rick astley never gonna give you up', 3);
+    check(hits.length > 0, 'YouTube search returned nothing');
+    firstHit = hits[0]!;
+    const info = await resolveStream(firstHit.url);
+    check(info.streamUrl.startsWith('http') && info.durationSec > 60, 'no usable stream');
+    const ff = await findFfmpeg();
+    const out = join(tmpdir(), `aj-smoke-${Date.now()}.ogg`);
+    const r = await runTool(
+      ff,
+      [
+        '-hide_banner',
+        '-loglevel',
+        'error',
+        '-y',
+        '-i',
+        info.streamUrl,
+        '-t',
+        '5',
+        '-vn',
+        '-c:a',
+        'libopus',
+        '-b:a',
+        '96k',
+        '-f',
+        'ogg',
+        out,
+      ],
+      60_000,
+    );
+    const size = r.code === 0 ? statSync(out).size : 0;
+    rmSync(out, { force: true });
+    check(size > 20_000, `ffmpeg produced ${size} bytes (${r.stderr.slice(0, 200)})`);
+  });
+
+  await step('Music: Spotify album is read without keys', async () => {
+    const album = await fetchSpotify('album', '4yP0hdKOZPNshxUOjY0cZj');
+    check(album.songs.length >= 10, `only ${album.songs.length} songs read`);
+    check(
+      album.songs.every((s) => s.title && s.artist && s.durationSec > 0),
+      'incomplete song details',
+    );
+  });
+
+  await step('Music: joins a voice channel, queues songs, panel + queue render, leaves', async () => {
+    const vc = await guild.channels.create({
+      name: 'aj-music-test',
+      type: ChannelType.GuildVoice,
+      parent: category!.id,
+    });
+    created.push(vc.id);
+    check(firstHit, 'no search result from the previous step');
+    const p = await GuildPlayer.connect(guild, vc, g.id);
+    const mk = (id: string, extra: Partial<Track> = {}): Track => ({
+      id,
+      title: firstHit!.title,
+      author: firstHit!.channel,
+      durationSec: firstHit!.durationSec,
+      url: firstHit!.url,
+      search: null,
+      thumbnail: firstHit!.thumbnail,
+      source: 'youtube',
+      requesterId: owner.id,
+      displayUrl: firstHit!.url,
+      ...extra,
+    });
+    const res = await p.add([
+      mk('s1'),
+      mk('s2'),
+      mk('s3', {
+        source: 'spotify',
+        url: null,
+        title: 'Blinding Lights',
+        author: 'The Weeknd',
+        durationSec: 200,
+      }),
+    ]);
+    check(res.startsNow && res.added === 3, 'songs were not queued');
+    for (let t = 0; t < 40 && p.panelState().status === 'loading'; t++) await sleep(500);
+    // Nobody is listening in the test channel, so the player pauses itself (as designed).
+    check(p.panelState().status === 'paused', `player status is ${p.panelState().status}`);
+    const payload = await p.panelPayload();
+    await g.send(payload);
+    const q = renderQueue(await modCtx(), p, 0, owner.id);
+    await g.send({ embeds: q.embeds, components: q.components as never });
+    p.destroy('smoke test done');
+    check(!getPlayer(guild.id), 'player still registered after leaving');
   });
 
   await step(

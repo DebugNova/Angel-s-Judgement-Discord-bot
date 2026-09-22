@@ -13,7 +13,7 @@ export interface BackupFile {
 }
 
 const ALL_TABLES =
-  '"ModCase","AuditLog","Cooldown","MatchNote","Evidence","EloHistory","MatchResult","MatchParticipant","Match","Challenge","Season","Player","GuildConfig"';
+  '"MusicPlaylist","MusicSession","ModCase","AuditLog","Cooldown","MatchNote","Evidence","EloHistory","MatchResult","MatchParticipant","Match","Challenge","Season","Player","GuildConfig"';
 
 /** Logical export of every table (portable JSON; no pg_dump needed). */
 export async function exportAll(): Promise<BackupFile> {
@@ -35,6 +35,8 @@ export async function exportAll(): Promise<BackupFile> {
       cooldown: await c.cooldown.findMany(),
       auditLog: await c.auditLog.findMany(),
       modCase: await c.modCase.findMany(),
+      musicPlaylist: await c.musicPlaylist.findMany(),
+      musicSession: await c.musicSession.findMany(),
     },
   };
 }
@@ -64,6 +66,8 @@ export async function importAll(backup: BackupFile): Promise<void> {
       await tx.modCase.createMany({
         data: rows('modCase').map((r) => ({ ...r, details: r.details ?? undefined })) as never,
       });
+      await tx.musicPlaylist.createMany({ data: rows('musicPlaylist') as never });
+      await tx.musicSession.createMany({ data: rows('musicSession') as never });
     },
     { timeout: 300_000 },
   );

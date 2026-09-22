@@ -832,6 +832,19 @@ export const HELP_CATEGORIES = {
       'Tip: inside a match channel, `match_id` can be left empty.',
     ],
   },
+  music: {
+    label: 'Music',
+    emoji: '🎵',
+    lines: [
+      'Join a voice channel first.',
+      '`/play <song or link>` — a name, or a YouTube, Spotify or SoundCloud link (songs, albums, playlists).',
+      '`/search <song>` — pick the right one from the top 5 results.',
+      '`/skip` (or vote to skip) · `/stop` · `/queue` · `/nowplaying` (move the player down)',
+      '`/music pause · resume · back · loop · shuffle · volume · seek · remove · move · jump · clear · history · stay`',
+      '`/playlist save · load · list · delete` — your own saved playlists.',
+      'The player panel has buttons for everything. With a DJ role set, only DJs control playback.',
+    ],
+  },
   moderation: {
     label: 'Moderation',
     emoji: '🔨',
@@ -854,6 +867,7 @@ export const HELP_CATEGORIES = {
       '`/config channel matches|history|logs|leaderboard|staff` — Pick channels.',
       '`/config roles referee|moderator|admin` — Pick staff roles.',
       '`/config roles moderation` — The only roles allowed to moderate (owner only).',
+      '`/config roles dj` — Who controls the music (none set = everyone in the channel).',
       '`/config channel modlog` · `/config moderation` — Mod-log channel, DM default.',
       '`/config elo` · `/config cooldown` · `/config challenge` · `/config matches`',
       '`/config leaderboard` · `/config display` · `/config season`',
@@ -932,6 +946,10 @@ export function configEmbed(theme: Theme, c: GuildConfig, season: Season | null)
           `Mod-log: ${c.modLogChannelId ? ch(c.modLogChannelId) : c.logChannelId ? `${ch(c.logChannelId)} (logs channel)` : '`not set`'}`,
           `DM members: **${c.modDmMembers ? 'yes' : 'no'}** • Cases so far: **${c.modCaseCounter}**`,
         ].join('\n'),
+      },
+      {
+        name: 'Music',
+        value: `DJ roles: ${c.musicDjRoleIds.length > 0 ? roles(c.musicDjRoleIds) : 'none (everyone in the channel controls it)'} • Volume **${c.musicVolume}%** • 24/7 **${c.music247 ? 'on' : 'off'}**`,
       },
       {
         name: 'ELO',

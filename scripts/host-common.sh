@@ -36,13 +36,28 @@ find_pg_bin() {
   return 1
 }
 
+# Music needs ffmpeg. It is optional on purpose: if it can't be installed, the bot still starts
+# (only music is unavailable), so this can never block the ranking bot.
+ensure_ffmpeg() {
+  command -v ffmpeg >/dev/null && return 0
+  say "Installing ffmpeg (for music)"
+  if command -v apk >/dev/null; then
+    apk add --no-cache ffmpeg >/dev/null 2>&1
+  else
+    apt-get install -y ffmpeg >/dev/null 2>&1
+  fi
+  command -v ffmpeg >/dev/null || say "ffmpeg could not be installed. Music will be unavailable; everything else works."
+  return 0
+}
+
 # After a container reinstall the system packages are gone (the data folder survives): reinstall.
 ensure_packages() {
   if find_pg_bin && command -v git >/dev/null && command -v node >/dev/null; then
+    ensure_ffmpeg
     return 0
   fi
   say "Installing system packages"
-  install_packages && find_pg_bin
+  install_packages && find_pg_bin && ensure_ffmpeg
 }
 
 # Options go before the user name: BusyBox su (Alpine) stops reading options at the user name.
