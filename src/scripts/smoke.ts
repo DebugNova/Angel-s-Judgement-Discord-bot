@@ -727,10 +727,7 @@ try {
           moderatorId: owner.id,
         }),
       ],
-      components: [
-        ...M.confirmButtons(c.theme, 'smoketoken', 'Ban', '🔨'),
-        ...M.stopJobButton(c.theme, guild.id),
-      ],
+      components: [...M.confirmButtons('smoketoken', 'Ban'), ...M.stopJobButton(guild.id)],
     });
     await g.send(await renderRecord(c, m1.id, 0, owner.id));
   });

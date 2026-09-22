@@ -510,7 +510,7 @@ export async function lockChannel(
   return doneEmbed(
     ctx.theme,
     c,
-    `${channel} is locked. Members can read it but not write.\nUse \`/unlock\` to open it again.`,
+    `${channel} is locked. Members can read it but can't write until it is unlocked.`,
   );
 }
 

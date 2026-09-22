@@ -7,6 +7,7 @@ import type {
   GuildMember,
   InteractionEditReplyOptions,
   PermissionResolvable,
+  RepliableInteraction,
   Role,
   User,
 } from 'discord.js';
@@ -15,7 +16,7 @@ import { log } from '../../core/logger.js';
 import { hasModerationAccess } from '../../modules/permissions/permissions.js';
 import type { MemberFacts, RoleFacts } from '../../modules/moderation/safety.js';
 import type { Ctx } from '../context.js';
-import { errorEmbed } from '../ui/embeds.js';
+import { modErrorEmbed } from '../ui/moderation.js';
 
 /** Only members holding a configured moderation role pass — nobody else, whatever their rank. */
 export function requireModeration(ctx: Ctx): void {
@@ -134,7 +135,7 @@ export interface Pending {
   userId: string;
   expiresAt: number;
   /** Runs with the context of the click, so the moderator is re-checked as they are right now. */
-  run: (ctx: Ctx) => Promise<EmbedBuilder>;
+  run: (ctx: Ctx) => Promise<EmbedBuilder | null>;
 }
 
 const PENDING_TTL_MS = 120_000;
@@ -168,33 +169,54 @@ export function takePending(token: string): Pending | null {
 export interface Reply {
   embeds: EmbedBuilder[];
   components?: InteractionEditReplyOptions['components'];
+  /** Only the moderator sees it (confirm cards, record lookups). Results are public by default. */
+  private?: boolean;
 }
 
 /**
- * Runs a moderation command with a private "thinking…" reply, and turns rule violations into a
- * friendly error in that same reply (instead of leaving it stuck on "thinking").
+ * Swaps the moderator's private "thinking…" placeholder for the public result in the channel.
+ * Errors never reach this point: they stay private in the placeholder.
  */
-export async function runPrivately(
+export async function postPublicly(i: RepliableInteraction<'cached'>, embeds: EmbedBuilder[]): Promise<void> {
+  await i.deleteReply().catch(() => undefined);
+  await i.followUp({ embeds, allowedMentions: { parse: [] } });
+}
+
+/**
+ * Runs a moderation command. While it works, only the moderator sees "thinking…". The result is
+ * then posted in the channel for everyone; a refusal or error stays private to the moderator.
+ */
+export async function runModeration(
   i: ChatInputCommandInteraction<'cached'>,
   ctx: Ctx,
   fn: () => Promise<Reply>,
 ): Promise<void> {
   await i.deferReply({ flags: MessageFlags.Ephemeral });
+  let out: Reply;
   try {
-    const out = await fn();
-    await i.editReply({ ...out, allowedMentions: { parse: [] } });
+    out = await fn();
   } catch (err) {
     await i
       .editReply({ embeds: [friendlyError(ctx, err, i.commandName)], components: [] })
       .catch((e: unknown) => log.debug('MOD_ERROR_REPLY_FAILED', { error: String(e) }));
+    return;
   }
+  if (out.private) {
+    await i.editReply({
+      embeds: out.embeds,
+      components: out.components ?? [],
+      allowedMentions: { parse: [] },
+    });
+    return;
+  }
+  await postPublicly(i, out.embeds);
 }
 
 /** A DomainError as-is; anything else is logged in full and shown as a generic message. */
 export function friendlyError(ctx: Ctx, err: unknown, what: string): EmbedBuilder {
-  if (isDomainError(err)) return errorEmbed(ctx.theme, err.title, err.message);
+  if (isDomainError(err)) return modErrorEmbed(ctx.theme, err.title, err.message);
   log.error('MODERATION_FAILED', { action: what, guild: ctx.guild.id, user: ctx.member.id }, err);
-  return errorEmbed(
+  return modErrorEmbed(
     ctx.theme,
     'Something went wrong',
     'Discord refused or the action failed. Nothing was recorded. The error has been logged for the staff.',

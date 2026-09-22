@@ -1,3 +1,7 @@
+/**
+ * Moderation screens. Deliberately plain and professional: no emojis in titles, buttons or DMs
+ * (owner's wish), just the brand frame, colour and one line of lore.
+ */
 import { ActionRowBuilder, ButtonBuilder, ButtonStyle } from 'discord.js';
 import type { EmbedBuilder } from 'discord.js';
 import type { ModCase } from '@prisma/client';
@@ -5,38 +9,51 @@ import { formatDuration } from '../../modules/moderation/duration.js';
 import type { MemberRecord, ModAction } from '../../modules/moderation/cases.service.js';
 import { Ids } from '../ids.js';
 import { ModLore } from './lore.js';
-import { Colors, baseEmbed, e, lore, plural, ts, user } from './theme.js';
+import { Colors, baseEmbed, lore, plural, ts, user } from './theme.js';
 import type { Theme } from './theme.js';
 
 interface ActionMeta {
   label: string;
-  emoji: string;
   color: number;
-  /** Past tense for result messages and DMs, e.g. "banned". */
+  /** Past tense for DMs, e.g. "banned". */
   done: string;
 }
 
 export const ACTION_META: Record<ModAction, ActionMeta> = {
-  WARN: { label: 'Warning', emoji: '⚠️', color: Colors.pending, done: 'warned' },
-  TIMEOUT: { label: 'Timeout', emoji: '🔇', color: Colors.review, done: 'timed out' },
-  UNTIMEOUT: { label: 'Timeout removed', emoji: '🔊', color: Colors.success, done: 'released from timeout' },
-  KICK: { label: 'Kick', emoji: '👢', color: Colors.danger, done: 'kicked' },
-  BAN: { label: 'Ban', emoji: '🔨', color: Colors.danger, done: 'banned' },
-  UNBAN: { label: 'Unban', emoji: '🕊️', color: Colors.success, done: 'unbanned' },
-  PURGE: { label: 'Purge', emoji: '🧹', color: Colors.ivory, done: 'purged' },
-  ROLE_ADD: { label: 'Role given', emoji: '➕', color: Colors.active, done: 'given a role' },
-  ROLE_REMOVE: { label: 'Role taken', emoji: '➖', color: Colors.active, done: 'had a role taken' },
-  ROLE_ALL_ADD: { label: 'Role given to everyone', emoji: '🕊️', color: Colors.active, done: 'given' },
-  ROLE_ALL_REMOVE: { label: 'Role taken from everyone', emoji: '🕊️', color: Colors.active, done: 'taken' },
-  SLOWMODE: { label: 'Slowmode', emoji: '🐢', color: Colors.ivory, done: 'slowed' },
-  LOCK: { label: 'Channel locked', emoji: '🔒', color: Colors.disputed, done: 'locked' },
-  UNLOCK: { label: 'Channel unlocked', emoji: '🔓', color: Colors.success, done: 'unlocked' },
+  WARN: { label: 'Warning', color: Colors.pending, done: 'warned' },
+  TIMEOUT: { label: 'Timeout', color: Colors.review, done: 'timed out' },
+  UNTIMEOUT: { label: 'Timeout Removed', color: Colors.success, done: 'released from timeout' },
+  KICK: { label: 'Kick', color: Colors.danger, done: 'kicked' },
+  BAN: { label: 'Ban', color: Colors.danger, done: 'banned' },
+  UNBAN: { label: 'Unban', color: Colors.success, done: 'unbanned' },
+  PURGE: { label: 'Purge', color: Colors.ivory, done: 'purged' },
+  ROLE_ADD: { label: 'Role Given', color: Colors.active, done: 'given a role' },
+  ROLE_REMOVE: { label: 'Role Removed', color: Colors.active, done: 'had a role removed' },
+  ROLE_ALL_ADD: { label: 'Role Given to Everyone', color: Colors.active, done: 'given' },
+  ROLE_ALL_REMOVE: { label: 'Role Removed from Everyone', color: Colors.active, done: 'removed' },
+  SLOWMODE: { label: 'Slowmode', color: Colors.ivory, done: 'slowed' },
+  LOCK: { label: 'Channel Locked', color: Colors.disputed, done: 'locked' },
+  UNLOCK: { label: 'Channel Unlocked', color: Colors.success, done: 'unlocked' },
 };
 
+/** Actions aimed at one member: their public result shows the reason. */
+const MEMBER_ACTIONS = new Set<string>([
+  'WARN',
+  'TIMEOUT',
+  'UNTIMEOUT',
+  'KICK',
+  'BAN',
+  'UNBAN',
+  'ROLE_ADD',
+  'ROLE_REMOVE',
+]);
+
 function meta(action: string): ActionMeta {
-  return (
-    ACTION_META[action as ModAction] ?? { label: action, emoji: '📋', color: Colors.ivory, done: action }
-  );
+  return ACTION_META[action as ModAction] ?? { label: action, color: Colors.ivory, done: action };
+}
+
+function loreFor(action: string): string | null {
+  return (ModLore as Record<string, string>)[action] ?? null;
 }
 
 function detailLines(c: ModCase): string[] {
@@ -64,7 +81,7 @@ function detailLines(c: ModCase): string[] {
 /** The mod-log card for one case. */
 export function caseEmbed(theme: Theme, c: ModCase): EmbedBuilder {
   const m = meta(c.action);
-  const embed = baseEmbed(theme, m.color).setTitle(e(theme, m.emoji, `Case #${c.caseNumber} · ${m.label}`));
+  const embed = baseEmbed(theme, m.color).setTitle(`Case #${c.caseNumber} · ${m.label}`);
   if (c.targetId) {
     embed.addFields({
       name: 'Member',
@@ -84,14 +101,14 @@ export function caseEmbed(theme: Theme, c: ModCase): EmbedBuilder {
       value: `by ${user(c.removedById ?? '')}${c.removedReason ? ` · ${c.removedReason}` : ''}`,
     });
   }
-  const line = ModLore[c.action as keyof typeof ModLore];
+  const line = loreFor(c.action);
   if (line) embed.setDescription(lore(line));
   return embed.setTimestamp(c.createdAt);
 }
 
 export function warningRemovedEmbed(theme: Theme, c: ModCase): EmbedBuilder {
   return baseEmbed(theme, Colors.success)
-    .setTitle(e(theme, '🕊️', `Warning #${c.caseNumber} removed`))
+    .setTitle(`Warning #${c.caseNumber} Removed`)
     .setDescription(lore(ModLore.WARNING_REMOVED))
     .addFields(
       { name: 'Member', value: c.targetId ? user(c.targetId) : '—', inline: true },
@@ -108,7 +125,7 @@ export function dmEmbed(
 ): EmbedBuilder {
   const m = meta(opts.action);
   const embed = baseEmbed(theme, m.color)
-    .setTitle(e(theme, m.emoji, `You were ${m.done} in ${opts.guildName}`.slice(0, 250)))
+    .setTitle(`You were ${m.done} in ${opts.guildName}`.slice(0, 250))
     .addFields({ name: 'Reason', value: opts.reason ?? '*No reason given*' });
   if (opts.durationSec) {
     embed.addFields({
@@ -116,32 +133,26 @@ export function dmEmbed(
       value: `${formatDuration(opts.durationSec)} · ends ${ts(new Date(Date.now() + opts.durationSec * 1000), 'R')}`,
     });
   }
-  const line = ModLore[opts.action as keyof typeof ModLore];
+  const line = loreFor(opts.action);
   return embed.setDescription([line ? lore(line) : '', '', ModLore.dmFooter].join('\n').trim());
 }
 
-/** The ephemeral "are you sure?" card before ban, kick, big purges and role-for-everyone. */
+/** The private "are you sure?" card before ban, kick, big purges and role-for-everyone. */
 export function confirmEmbed(
   theme: Theme,
   opts: { action: ModAction; title: string; lines: string[] },
 ): EmbedBuilder {
-  const m = meta(opts.action);
   return baseEmbed(theme, Colors.danger)
-    .setTitle(e(theme, m.emoji, opts.title))
+    .setTitle(opts.title)
     .setDescription(
       [...opts.lines, '', lore(ModLore.confirm), 'This request expires in 2 minutes.'].join('\n'),
     );
 }
 
-export function confirmButtons(theme: Theme, token: string, label: string, emoji?: string) {
-  const ok = new ButtonBuilder()
-    .setCustomId(Ids.mod.confirm(token))
-    .setLabel(label)
-    .setStyle(ButtonStyle.Danger);
-  if (emoji && theme.emojis) ok.setEmoji(emoji);
+export function confirmButtons(token: string, label: string) {
   return [
     new ActionRowBuilder<ButtonBuilder>().addComponents(
-      ok,
+      new ButtonBuilder().setCustomId(Ids.mod.confirm(token)).setLabel(label).setStyle(ButtonStyle.Danger),
       new ButtonBuilder()
         .setCustomId(Ids.mod.cancel(token))
         .setLabel('Cancel')
@@ -150,13 +161,22 @@ export function confirmButtons(theme: Theme, token: string, label: string, emoji
   ];
 }
 
-/** The moderator's private "done" message. */
+/** The public result posted in the channel where the moderator acted. */
 export function doneEmbed(theme: Theme, c: ModCase, summary: string): EmbedBuilder {
   const m = meta(c.action);
-  const line = ModLore[c.action as keyof typeof ModLore];
-  return baseEmbed(theme, m.color)
-    .setTitle(e(theme, m.emoji, `${m.label} · Case #${c.caseNumber}`))
+  const line = loreFor(c.action);
+  const embed = baseEmbed(theme, m.color)
+    .setTitle(`${m.label} · Case #${c.caseNumber}`)
     .setDescription([summary, ...(line ? ['', lore(line)] : [])].join('\n'));
+  if (MEMBER_ACTIONS.has(c.action) || c.reason) {
+    embed.addFields({ name: 'Reason', value: c.reason ?? '*No reason given*' });
+  }
+  return embed;
+}
+
+/** A moderation error, shown only to the moderator. */
+export function modErrorEmbed(theme: Theme, title: string, message: string): EmbedBuilder {
+  return baseEmbed(theme, Colors.danger).setTitle(title).setDescription(message);
 }
 
 export function recordEmbed(
@@ -175,10 +195,10 @@ export function recordEmbed(
     const m = meta(x.action);
     const removed = x.action === 'WARN' && !x.active ? ' ~~removed~~' : '';
     const dur = x.durationSec ? ` (${formatDuration(x.durationSec)})` : '';
-    return `${theme.emojis ? `${m.emoji} ` : ''}**#${x.caseNumber}** ${m.label}${dur}${removed} · ${ts(x.createdAt, 'R')} by ${user(x.moderatorId)}\n> ${(x.reason ?? 'No reason given').slice(0, 120)}`;
+    return `**#${x.caseNumber}** ${m.label}${dur}${removed} · ${ts(x.createdAt, 'R')} by ${user(x.moderatorId)}\n> ${(x.reason ?? 'No reason given').slice(0, 120)}`;
   });
   const embed = baseEmbed(theme, rec.activeWarnings > 0 ? Colors.pending : Colors.ivory)
-    .setTitle(e(theme, '📜', `Record of ${target.name}`.slice(0, 250)))
+    .setTitle(`Record of ${target.name}`.slice(0, 250))
     .setDescription([`${user(target.id)} · \`${target.id}\``, '', summary].join('\n'))
     .addFields({
       name:
@@ -210,23 +230,22 @@ export function massRoleProgressEmbed(theme: Theme, p: MassRoleProgress): EmbedB
   const bar = '▰'.repeat(filled) + '▱'.repeat(width - filled);
   const elapsed = (Date.now() - p.startedAt) / 1000;
   const eta = processed > 0 && p.state === 'running' ? ((p.total - processed) * elapsed) / processed : null;
-  const verb = p.give ? 'Giving' : 'Taking';
   const title =
     p.state === 'running'
-      ? `${verb} a role ${p.give ? 'to' : 'from'} everyone`
+      ? `${p.give ? 'Giving a role to' : 'Removing a role from'} everyone`
       : p.state === 'stopped'
-        ? 'Stopped'
-        : 'Finished';
+        ? 'Role Update Stopped'
+        : 'Role Update Finished';
   const color =
     p.state === 'running' ? Colors.active : p.state === 'stopped' ? Colors.pending : Colors.success;
   return baseEmbed(theme, color)
-    .setTitle(e(theme, p.state === 'running' ? '🕊️' : p.state === 'stopped' ? '⏹️' : '✨', title))
+    .setTitle(title)
     .setDescription(
       [
         `Role: <@&${p.roleId}> · started by ${user(p.moderatorId)}`,
         '',
         `${bar}  **${processed} / ${p.total}**`,
-        `${p.give ? 'Given' : 'Taken'} **${p.done}** • Failed **${p.failed}** • Left the server **${p.left}**`,
+        `${p.give ? 'Given' : 'Removed'} **${p.done}** • Failed **${p.failed}** • Left the server **${p.left}**`,
         eta !== null
           ? `About **${formatDuration(Math.max(eta, 1))}** left`
           : `Took **${formatDuration(elapsed)}**`,
@@ -235,21 +254,18 @@ export function massRoleProgressEmbed(theme: Theme, p: MassRoleProgress): EmbedB
     );
 }
 
-export function stopJobButton(theme: Theme, guildId: string) {
-  const b = new ButtonBuilder()
-    .setCustomId(Ids.mod.stopJob(guildId))
-    .setLabel('Stop')
-    .setStyle(ButtonStyle.Danger);
-  if (theme.emojis) b.setEmoji('⏹️');
-  return [new ActionRowBuilder<ButtonBuilder>().addComponents(b)];
+export function stopJobButton(guildId: string) {
+  return [
+    new ActionRowBuilder<ButtonBuilder>().addComponents(
+      new ButtonBuilder().setCustomId(Ids.mod.stopJob(guildId)).setLabel('Stop').setStyle(ButtonStyle.Danger),
+    ),
+  ];
 }
 
-/** Posted in a channel when it is locked or unlocked, so members know what happened. */
+/** Posted in a locked/unlocked channel when the moderator ran the command from somewhere else. */
 export function lockNoticeEmbed(theme: Theme, locked: boolean, reason: string | null): EmbedBuilder {
   return baseEmbed(theme, locked ? Colors.disputed : Colors.success)
-    .setTitle(
-      e(theme, locked ? '🔒' : '🔓', locked ? 'This channel is locked' : 'This channel is open again'),
-    )
+    .setTitle(locked ? 'This Channel Is Locked' : 'This Channel Is Open Again')
     .setDescription(
       [lore(locked ? ModLore.LOCK : ModLore.UNLOCK), ...(reason ? ['', `Reason: ${reason}`] : [])].join('\n'),
     );

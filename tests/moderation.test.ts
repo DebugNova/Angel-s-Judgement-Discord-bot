@@ -305,6 +305,7 @@ describe('moderation buttons', () => {
         i.replied = true;
       },
       editReply: async (p: unknown) => void calls.push({ method: 'editReply', payload: p }),
+      deleteReply: async () => void calls.push({ method: 'deleteReply', payload: null }),
       reply: async (p: unknown) => void calls.push({ method: 'reply', payload: p }),
       followUp: async (p: unknown) => void calls.push({ method: 'followUp', payload: p }),
     };
@@ -351,8 +352,10 @@ describe('moderation buttons', () => {
     });
     await expect(press(Ids.mod.confirm(token), MOD2, [Z])).rejects.toMatchObject({ code: 'NOT_YOURS' });
     const calls = await press(Ids.mod.confirm(token), MOD, [Z]);
-    expect(calls.map((c) => c.method)).toEqual(['update', 'editReply']);
-    expect(JSON.stringify(calls[1]!.payload)).toContain('Done');
+    // The private confirm card is removed and the result is posted publicly (no ephemeral flag).
+    expect(calls.map((c) => c.method)).toEqual(['update', 'deleteReply', 'followUp']);
+    expect(JSON.stringify(calls[2]!.payload)).toContain('Done');
+    expect((calls[2]!.payload as { flags?: unknown }).flags).toBeUndefined();
     await expect(press(Ids.mod.confirm(token), MOD, [Z])).rejects.toMatchObject({ code: 'STALE' });
     expect(ran).toBe(1);
   });

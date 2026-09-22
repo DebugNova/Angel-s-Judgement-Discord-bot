@@ -35,7 +35,7 @@ import {
   unlockChannel,
   warnMember,
 } from './actions.js';
-import { addPending, cleanReason, requireModeration, runPrivately } from './common.js';
+import { addPending, cleanReason, requireModeration, runModeration } from './common.js';
 import type { Reply } from './common.js';
 import { estimateSeconds, prepareMassRole, startMassRole } from './massrole.js';
 
@@ -103,7 +103,7 @@ const warn: SlashCommand = {
   async execute(i, ctx) {
     requireModeration(ctx);
     const target = i.options.getUser('member', true);
-    await runPrivately(i, ctx, async () => ({
+    await runModeration(i, ctx, async () => ({
       embeds: [await warnMember(ctx, { targetId: target.id, reason: reasonOf(i), dm: wantDm(i, ctx) })],
     }));
   },
@@ -143,7 +143,10 @@ const warnings: SlashCommand = {
   async execute(i, ctx) {
     requireModeration(ctx);
     const target = i.options.getUser('member', true);
-    await runPrivately(i, ctx, () => renderRecord(ctx, target.id, 0, i.user.id));
+    await runModeration(i, ctx, async () => ({
+      ...(await renderRecord(ctx, target.id, 0, i.user.id)),
+      private: true,
+    }));
   },
 };
 
@@ -160,7 +163,7 @@ const unwarn: SlashCommand = {
   level: PermissionLevel.MEMBER,
   async execute(i, ctx) {
     requireModeration(ctx);
-    await runPrivately(i, ctx, async () => {
+    await runModeration(i, ctx, async () => {
       const c = await removeWarning({
         guildId: ctx.guild.id,
         caseNumber: i.options.getInteger('case', true),
@@ -228,7 +231,7 @@ const timeout: SlashCommand = {
     requireModeration(ctx);
     const target = i.options.getUser('member', true);
     const durationSec = parseTimeoutDuration(i.options.getString('duration', true));
-    await runPrivately(i, ctx, async () => ({
+    await runModeration(i, ctx, async () => ({
       embeds: [
         await timeoutMember(ctx, {
           targetId: target.id,
@@ -257,7 +260,7 @@ const untimeout: SlashCommand = {
   async execute(i, ctx) {
     requireModeration(ctx);
     const target = i.options.getUser('member', true);
-    await runPrivately(i, ctx, async () => ({
+    await runModeration(i, ctx, async () => ({
       embeds: [await untimeoutMember(ctx, { targetId: target.id, reason: reasonOf(i), dm: wantDm(i, ctx) })],
     }));
   },
@@ -280,7 +283,7 @@ const kick: SlashCommand = {
     const targetId = i.options.getUser('member', true).id;
     const reason = reasonOf(i);
     const dm = wantDm(i, ctx);
-    await runPrivately(i, ctx, async () => {
+    await runModeration(i, ctx, async () => {
       const target = await planKick(ctx, targetId);
       const token = addPending({
         guildId: ctx.guild.id,
@@ -301,7 +304,8 @@ const kick: SlashCommand = {
             ],
           }),
         ],
-        components: confirmButtons(ctx.theme, token, 'Kick', '👢'),
+        components: confirmButtons(token, 'Kick'),
+        private: true,
       };
     });
   },
@@ -336,7 +340,7 @@ const ban: SlashCommand = {
     const reason = reasonOf(i);
     const dm = wantDm(i, ctx);
     const deleteWindow = i.options.getString('delete_messages') ?? 'none';
-    await runPrivately(i, ctx, async () => {
+    await runModeration(i, ctx, async () => {
       const { targetUser, target } = await planBan(ctx, targetId);
       const token = addPending({
         guildId: ctx.guild.id,
@@ -358,7 +362,8 @@ const ban: SlashCommand = {
             ],
           }),
         ],
-        components: confirmButtons(ctx.theme, token, 'Ban', '🔨'),
+        components: confirmButtons(token, 'Ban'),
+        private: true,
       };
     });
   },
@@ -388,7 +393,7 @@ const unban: SlashCommand = {
     const id = raw.match(/\d{17,20}/)?.[0];
     if (!id) throw new DomainError('BAD_USER', 'Pick someone from the list, or paste their user ID.', 'Who?');
     banCache.delete(ctx.guild.id);
-    await runPrivately(i, ctx, async () => ({
+    await runModeration(i, ctx, async () => ({
       embeds: [await unbanUser(ctx, { targetId: id, reason: reasonOf(i) })],
     }));
   },
@@ -451,7 +456,7 @@ const purge: SlashCommand = {
     };
     const reason = reasonOf(i);
     const channel = await currentChannel(i);
-    await runPrivately(i, ctx, async () => {
+    await runModeration(i, ctx, async () => {
       if (amount <= PURGE_CONFIRM_ABOVE)
         return { embeds: [await purgeMessages(ctx, channel, { amount, filter, reason })] };
       const scan = await prepareScan(ctx, channel, amount, filter);
@@ -476,7 +481,8 @@ const purge: SlashCommand = {
             ],
           }),
         ],
-        components: confirmButtons(ctx.theme, token, `Delete ${scan.ids.length}`, '🧹'),
+        components: confirmButtons(token, `Delete ${scan.ids.length}`),
+        private: true,
       };
     });
   },
@@ -532,7 +538,7 @@ const role: SlashCommand = {
     const reason = reasonOf(i);
     if (sub === 'give' || sub === 'take') {
       const targetId = i.options.getUser('member', true).id;
-      await runPrivately(i, ctx, async () => ({
+      await runModeration(i, ctx, async () => ({
         embeds: [await changeRole(ctx, { targetId, roleId, give: sub === 'give', reason })],
       }));
       return;
@@ -540,7 +546,7 @@ const role: SlashCommand = {
     const give = i.options.getString('action', true) === 'give';
     const includeBots = i.options.getBoolean('include_bots') ?? false;
     const channel = await currentChannel(i);
-    await runPrivately(i, ctx, async () => {
+    await runModeration(i, ctx, async () => {
       const preview = await prepareMassRole(ctx, { roleId, give, includeBots });
       const n = preview.plan.todo.length;
       const token = addPending({
@@ -564,7 +570,8 @@ const role: SlashCommand = {
             ],
           }),
         ],
-        components: confirmButtons(ctx.theme, token, give ? `Give to ${n}` : `Take from ${n}`, '🕊️'),
+        components: confirmButtons(token, give ? `Give to ${n}` : `Remove from ${n}`),
+        private: true,
       };
     });
   },
@@ -606,7 +613,7 @@ const slowmode: SlashCommand = {
   async execute(i, ctx) {
     requireModeration(ctx);
     const channel = channelOption(i) ?? (await currentChannel(i));
-    await runPrivately(i, ctx, async () => ({
+    await runModeration(i, ctx, async () => ({
       embeds: [
         await setSlowmode(ctx, channel, {
           seconds: i.options.getInteger('delay', true),
@@ -634,16 +641,15 @@ function lockCommand(name: 'lock' | 'unlock'): SlashCommand {
           .addChannelTypes(...CHANNEL_TYPES),
       )
       .addStringOption(reasonOpt())
-      .addBooleanOption((o) =>
-        o.setName('announce').setDescription('Post a notice in the channel (default: yes)'),
-      )
       .toJSON(),
     level: PermissionLevel.MEMBER,
     async execute(i, ctx) {
       requireModeration(ctx);
       const channel = channelOption(i) ?? (await currentChannel(i));
-      const input = { reason: reasonOf(i), notify: i.options.getBoolean('announce') ?? true };
-      await runPrivately(i, ctx, async () => ({
+      // The public result lands where the command was typed; if that's another channel, the
+      // locked/unlocked channel gets its own notice so its members know too.
+      const input = { reason: reasonOf(i), notify: channel.id !== i.channelId };
+      await runModeration(i, ctx, async () => ({
         embeds: [
           name === 'lock' ? await lockChannel(ctx, channel, input) : await unlockChannel(ctx, channel, input),
         ],

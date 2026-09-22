@@ -1,10 +1,8 @@
 import type { ButtonInteraction } from 'discord.js';
 import { DomainError } from '../../core/errors.js';
 import type { Ctx } from '../context.js';
-import { replyEphemeral } from '../context.js';
-import { infoEmbed, successEmbed } from '../ui/embeds.js';
-import { e } from '../ui/theme.js';
-import { friendlyError, peekPending, requireModeration, takePending } from './common.js';
+import { infoEmbed } from '../ui/embeds.js';
+import { friendlyError, peekPending, postPublicly, requireModeration, takePending } from './common.js';
 import { renderRecord } from './commands.js';
 import { stopJob } from './massrole.js';
 
@@ -36,16 +34,17 @@ export async function handleModerationButton(
         );
       }
       if (!takePending(args[0] ?? '')) throw expired();
-      await i.update({
-        embeds: [infoEmbed(ctx.theme, e(ctx.theme, '⏳', 'Working…'), 'One moment.')],
-        components: [],
-      });
+      await i.update({ embeds: [infoEmbed(ctx.theme, 'Working…', 'One moment.')], components: [] });
+      let embed;
       try {
-        const embed = await p.run(ctx);
-        await i.editReply({ embeds: [embed], components: [], allowedMentions: { parse: [] } });
+        embed = await p.run(ctx);
       } catch (err) {
         await i.editReply({ embeds: [friendlyError(ctx, err, 'confirm')], components: [] });
+        return;
       }
+      // The private confirm card disappears; the result is posted for the whole channel.
+      if (embed) await postPublicly(i, [embed]);
+      else await i.deleteReply().catch(() => undefined);
       return;
     }
     case 'no': {
@@ -66,15 +65,8 @@ export async function handleModerationButton(
         await i.update({ components: [] });
         return;
       }
-      await replyEphemeral(i, {
-        embeds: [
-          successEmbed(
-            ctx.theme,
-            'Stopping',
-            'The run stops after the member it is working on. The progress message shows the final numbers.',
-          ),
-        ],
-      });
+      // The public progress card itself switches to "Stopped" after the current member.
+      await i.update({ components: [] });
       return;
     }
     case 'rec': {

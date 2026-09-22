@@ -4,7 +4,7 @@
  * report progress (every 10 s), honour Stop, and record one case at the end.
  */
 import { DiscordAPIError, RESTJSONErrorCodes } from 'discord.js';
-import type { EmbedBuilder, Guild, GuildTextBasedChannel, Message, Role } from 'discord.js';
+import type { Guild, GuildTextBasedChannel, Message, Role } from 'discord.js';
 import { DomainError } from '../../core/errors.js';
 import { log } from '../../core/logger.js';
 import { recordCase } from '../../modules/moderation/cases.service.js';
@@ -15,7 +15,7 @@ import type { Ctx } from '../context.js';
 import { themeFor } from '../context.js';
 import { massRoleProgressEmbed, stopJobButton } from '../ui/moderation.js';
 import type { MassRoleProgress } from '../ui/moderation.js';
-import { successEmbed } from '../ui/embeds.js';
+
 import { assertBotCan, auditReason, botMember, memberFacts, roleFacts } from './common.js';
 
 const PROGRESS_EVERY_MS = 10_000;
@@ -124,7 +124,7 @@ export async function startMassRole(
   ctx: Ctx,
   channel: GuildTextBasedChannel,
   input: { roleId: string; give: boolean; includeBots: boolean; reason: string | null },
-): Promise<EmbedBuilder> {
+): Promise<null> {
   const preview = await prepareMassRole(ctx, input);
   const { role, plan } = preview;
   const theme = themeFor(ctx.config, ctx.guild.client);
@@ -151,7 +151,7 @@ export async function startMassRole(
   try {
     message = await channel.send({
       embeds: [massRoleProgressEmbed(theme, job.progress)],
-      components: stopJobButton(theme, ctx.guild.id),
+      components: stopJobButton(ctx.guild.id),
       allowedMentions: { parse: [] },
     });
   } catch (err) {
@@ -162,11 +162,8 @@ export async function startMassRole(
     log.error('MASS_ROLE_FAILED', { guild: ctx.guild.id, role: role.id }, err);
     jobs.delete(ctx.guild.id);
   });
-  return successEmbed(
-    ctx.theme,
-    'Started',
-    `${input.give ? 'Giving' : 'Taking'} ${role} ${input.give ? 'to' : 'from'} **${plan.todo.length}** member(s). Follow the progress here: ${message.url}`,
-  );
+  // The public progress card is the result; nothing else needs posting.
+  return null;
 }
 
 async function runJob(
