@@ -218,7 +218,7 @@ Your PC's `.env` has the **real** token. If you ever double-clicked `start.bat` 
 In VS Code's file list: right-click `.env` → **Copy** → right-click an empty spot → **Paste** → rename `.env copy` to **`.env.production`**.
 
 **7.2: Make a test server**
-In Discord: **+** (bottom of the server list) → **Create My Own** → name it `AJ Test`. Then right-click its icon → **Copy Server ID** and paste it into Notepad.
+In Discord: **+** (bottom of the server list) → **Create My Own** → name it `AJ Test`. Then right-click its icon → **Copy Server ID** and paste it into Notepad. (No "Copy Server ID"? Turn on ⚙️ User Settings → **Advanced** → **Developer Mode** first.)
 
 **7.3: Make the test bot**
 1. <https://discord.com/developers/applications> → **New Application** → name it `Angel's Judgement Test` → **Create**.
