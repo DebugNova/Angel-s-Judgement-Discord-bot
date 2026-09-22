@@ -76,7 +76,8 @@ export function nowPlayingEmbed(theme: Theme, s: PanelState): EmbedBuilder {
   const next = s.upcoming[0];
   embed.addFields(
     { name: 'Requested by', value: user(t.requesterId), inline: true },
-    { name: 'Volume', value: `${s.volume}%`, inline: true },
+    // Only shown when someone changed it: at 100% the audio is YouTube's original, untouched.
+    ...(s.volume !== 100 ? [{ name: 'Volume', value: `${s.volume}%`, inline: true }] : []),
     { name: 'Loop', value: LOOP_LABEL[s.loop], inline: true },
     {
       name: 'Up next',
@@ -121,8 +122,6 @@ export function playerButtons(s: PanelState) {
     new ActionRowBuilder<ButtonBuilder>().addComponents(
       btn('shuffle', 'Shuffle', ButtonStyle.Secondary, idle || s.upcoming.length < 2),
       btn('loop', `Loop: ${LOOP_LABEL[s.loop]}`),
-      btn('vdown', 'Vol −', ButtonStyle.Secondary, s.volume <= 0),
-      btn('vup', 'Vol +', ButtonStyle.Secondary, s.volume >= 150),
       btn('queue', 'Queue'),
     ),
   ];

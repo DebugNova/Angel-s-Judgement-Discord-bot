@@ -788,90 +788,96 @@ export function evidenceListEmbed(
 // ───────────────────────────── Info ─────────────────────────────
 
 export const HELP_CATEGORIES = {
-  duel: {
-    label: '1v1',
-    emoji: '⚔️',
+  general: {
+    label: 'General',
+    summary: 'Help, bot info and status',
     lines: [
-      '`/1v1 @player` — Challenge an angel to a duel (alias `/challenge`).',
-      'The challenged player gets **Accept** / **Decline**; you can **Cancel** your own challenge.',
-      'On accept, a private match channel opens for the two of you and the referees.',
+      '`/help` — This menu.',
+      '`/about` — About Angel’s Judgement and the Seven Angels.',
+      '`/botstatus` — Bot, database and arena status.',
+    ],
+  },
+  duel: {
+    label: '1v1 Duels',
+    summary: 'Challenge someone to a ranked duel',
+    lines: [
+      '`/1v1 @player` — Challenge someone to a ranked duel (`/challenge` does the same).',
+      'They press **Accept** or **Decline**; you can **Cancel** your own challenge.',
+      'On accept, a private match room opens for the two players and the referees.',
       'Share your private server link, play, then press **Report Result**.',
-      'Your opponent **confirms** — or **disputes**, which sends the match to a referee.',
+      'Your opponent **confirms** (ELO updates) or **disputes** (a referee decides).',
     ],
   },
   stats: {
-    label: 'Stats',
-    emoji: '📊',
+    label: 'Stats & Rankings',
+    summary: 'Profiles, leaderboards and history',
     lines: [
-      '`/stats [@player]` — Player profile: ELO, rank, record, streaks, recent form.',
+      '`/stats [@player]` — Profile: ELO, rank, record, win rate, streaks, recent form.',
       '`/leaderboard [type] [size]` — Rankings by ELO, wins, win rate, streak or matches.',
       '`/history [@player] [limit]` — Completed matches with ELO changes.',
-      '`/headtohead @player` — Your record against another angel.',
+      '`/headtohead @player` — Your record against another player.',
     ],
   },
   matches: {
-    label: 'Matches',
-    emoji: '🗡️',
+    label: 'Your Matches',
+    summary: 'Your current and past matches',
     lines: [
-      '`/currentmatch` — Your match in progress.',
-      '`/match view <id>` — View one of your matches (staff: any match).',
-      '`/match cancel` — Request cancellation of your active match (both players must agree).',
-      'Evidence: upload screenshots in your match channel — every file is recorded.',
-    ],
-  },
-  staff: {
-    label: 'Staff',
-    emoji: '⚖️',
-    lines: [
-      '`/match view` · `/match search` · `/match evidence` · `/match note`',
-      '`/match decide <winner> [match_id]` — Rule on a reported or disputed match.',
-      '`/match forcecomplete <winner> [match_id]` — Award an in-progress match (moderator).',
-      '`/match cancel <match_id>` · `/match reopen <match_id>` (moderator)',
-      '`/requestevidence [match_id]` — Ask players for screenshots.',
-      '`/player inspect` · `/player search` · `/player ban` · `/player unban` (moderator)',
-      'Tip: inside a match channel, `match_id` can be left empty.',
+      '`/currentmatch` — Your match in progress (also `/match current`).',
+      '`/match view <id>` — One of your matches.',
+      '`/match cancel` — Ask to cancel your active match (both players must agree).',
+      'Screenshots uploaded in your match room are saved as evidence automatically.',
     ],
   },
   music: {
     label: 'Music',
-    emoji: '🎵',
+    summary: 'Play songs, albums and playlists in voice',
     lines: [
       'Join a voice channel first.',
-      '`/play <song or link>` — a name, or a YouTube, Spotify or SoundCloud link (songs, albums, playlists).',
-      '`/search <song>` — pick the right one from the top 5 results.',
-      '`/skip` (or vote to skip) · `/stop` · `/queue` · `/nowplaying` (move the player down)',
-      '`/music pause · resume · back · loop · shuffle · volume · seek · remove · move · jump · clear · history · stay`',
-      '`/playlist save · load · list · delete` — your own saved playlists.',
-      'The player panel has buttons for everything. With a DJ role set, only DJs control playback.',
+      '`/play <song or link>` — A song name (plays the best match) or a YouTube, Spotify or SoundCloud link, including albums and playlists. `next:` plays it right after the current song (DJs).',
+      '`/search <song>` — Choose from the top 5 results.',
+      '`/skip` — Skip the song, or vote to skip. `/stop` — Stop, clear the queue and leave.',
+      '`/queue` — Browse the queue and jump to a song. `/nowplaying` — Move the player to the bottom of the chat.',
+      '`/music pause · resume · back · shuffle · loop · volume · seek · remove · move · jump · clear · history`',
+      '`/music stay` — 24/7 mode: stay in the voice channel when idle (DJs and staff).',
+      '`/playlist save · load · list · delete` — Your own saved playlists.',
+      'The player has buttons for Back, Pause, Skip, Stop, Shuffle, Loop and Queue.',
+    ],
+  },
+  staff: {
+    label: 'Referees & Staff',
+    summary: 'Disputes, decisions and ranked-play bans',
+    lines: [
+      '**Referee** · `/match search` · `/match view` · `/match evidence` · `/match note`',
+      '**Referee** · `/match decide <winner> [match_id]` — Rule on a reported or disputed match.',
+      '**Referee** · `/match cancel <match_id>` · `/requestevidence [match_id]` — Cancel a match; ask for screenshots.',
+      '**Moderator** · `/match forcecomplete <winner> [match_id]` · `/match reopen <match_id>`',
+      '**Moderator** · `/player inspect` · `/player search` · `/player ban` · `/player unban` (ranked play only)',
+      'Inside a match room, `match_id` can be left out.',
     ],
   },
   moderation: {
     label: 'Moderation',
-    emoji: '🔨',
+    summary: 'Warnings, timeouts, bans, purge and roles',
     lines: [
-      'Only members with the **moderation role** can use these — nobody else, whatever their rank.',
-      '`/warn` · `/warnings @member` (full record) · `/unwarn <case>`',
+      'Only members with the **moderation role** can use these. Admin or owner rank alone is not enough.',
+      '`/warn @member <reason>` · `/warnings @member` (full record) · `/unwarn <case>`',
       '`/timeout @member <duration>` · `/untimeout @member`',
-      '`/kick @member` · `/ban @user [delete_messages]` · `/unban <user>` (kick and ban ask to confirm)',
-      '`/purge <amount> [user] [bots] [attachments] [contains]` — delete recent messages here',
-      '`/role give|take @member @role` · `/role everyone @role` (preview → confirm → live progress)',
+      '`/kick @member` · `/ban @user [delete_messages]` · `/unban <user>` — Kick and ban ask you to confirm.',
+      '`/purge <amount> [user] [bots] [attachments] [contains]` — Delete recent messages in this channel.',
+      '`/role give|take @member @role` · `/role everyone @role` — Preview, confirm, then live progress.',
       '`/slowmode <delay>` · `/lock` · `/unlock`',
-      'Every action gets a **case number** and is posted to the mod-log. `dm:` chooses whether the member is told.',
+      'Every action gets a case number, is posted in the chat and the mod-log, and can DM the member (`dm:`).',
     ],
   },
   admin: {
     label: 'Admin',
-    emoji: '🛡️',
+    summary: 'Configuration, resets and maintenance',
     lines: [
-      '`/config view` — Current configuration.',
-      '`/config channel matches|history|logs|leaderboard|staff` — Pick channels.',
-      '`/config roles referee|moderator|admin` — Pick staff roles.',
-      '`/config roles moderation` — The only roles allowed to moderate (owner only).',
-      '`/config roles dj` — Who controls the music (none set = everyone in the channel).',
-      '`/config channel modlog` · `/config moderation` — Mod-log channel, DM default.',
-      '`/config elo` · `/config cooldown` · `/config challenge` · `/config matches`',
-      '`/config leaderboard` · `/config display` · `/config season`',
-      '`/resetstats` · `/player reset` — Guarded by a typed confirmation.',
+      '`/config view` — The current configuration.',
+      '`/config channel matches · history · logs · leaderboard · staff · modlog · clear`',
+      '`/config roles referee · moderator · admin · moderation · dj` — Admin and moderation: owner only. DJ: who controls the music (none set = everyone in the channel).',
+      '`/config elo · cooldown · challenge · matches · leaderboard · display · season · moderation`',
+      '`/resetstats` · `/player reset` — Reset stats (typed confirmation required).',
       '`/maintenance` — Pause new challenges.',
     ],
   },
@@ -879,24 +885,20 @@ export const HELP_CATEGORIES = {
 export type HelpCategory = keyof typeof HELP_CATEGORIES;
 
 export function helpEmbed(theme: Theme, category: HelpCategory | null): EmbedBuilder {
-  const embed = baseEmbed(theme, Colors.ivory).setTitle(
-    e(theme, '📖', `${Brand.name.toUpperCase()} — COMMANDS`),
-  );
+  const embed = baseEmbed(theme, Colors.ivory).setTitle(`${Brand.name} · Commands`);
   if (!category) {
     return embed.setDescription(
       [
         lore(Lore.help),
         '',
-        'Select a category below.',
+        ...Object.values(HELP_CATEGORIES).map((c) => `**${c.label}** — ${c.summary}`),
         '',
-        ...Object.values(HELP_CATEGORIES).map((c) => `${theme.emojis ? `${c.emoji} ` : ''}**${c.label}**`),
+        'Choose a category below.',
       ].join('\n'),
     );
   }
   const c = HELP_CATEGORIES[category];
-  return embed
-    .setTitle(e(theme, c.emoji, `${c.label.toUpperCase()} COMMANDS`))
-    .setDescription(c.lines.join('\n'));
+  return embed.setTitle(`${Brand.name} · ${c.label}`).setDescription(c.lines.join('\n'));
 }
 
 export function aboutEmbed(theme: Theme, season: Season | null): EmbedBuilder {

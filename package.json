@@ -26,7 +26,8 @@
     "postinstall": "prisma generate",
     "db:dev": "node scripts/dev-db.mjs",
     "check": "npm run typecheck && npm run lint && npm test",
-    "smoke": "npm run build && node dist/scripts/smoke.js"
+    "smoke": "npm run build && node dist/scripts/smoke.js",
+    "rehearse": "npm run build && node dist/scripts/rehearse-update.js"
   },
   "dependencies": {
     "@discordjs/voice": "~0.19.2",

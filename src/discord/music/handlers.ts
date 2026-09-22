@@ -8,8 +8,6 @@ import { requireControl, requireListener } from './access.js';
 import { pickSearchResult, renderQueue, requirePlayer, skipOrVote, takeSearch } from './commands.js';
 import type { GuildPlayer } from './player.js';
 
-const VOLUME_STEP = 10;
-
 /** After a panel button: redraw that same message (or just acknowledge an old panel). */
 async function redraw(i: ButtonInteraction<'cached'>, p: GuildPlayer): Promise<void> {
   if (p.isPanel(i.message.id)) await i.update(await p.panelPayload());
@@ -99,11 +97,6 @@ export async function handleMusicComponent(
     case 'loop':
       requireControl(ctx, p, 'change the loop');
       p.cycleLoop();
-      return redraw(i, p);
-    case 'vdown':
-    case 'vup':
-      requireControl(ctx, p, 'change the volume');
-      p.setVolume(p.volume + (action === 'vup' ? VOLUME_STEP : -VOLUME_STEP));
       return redraw(i, p);
     case 'queue':
       requireListener(ctx, p);

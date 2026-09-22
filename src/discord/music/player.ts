@@ -1,9 +1,10 @@
 /**
  * One music player per server: voice connection + audio player + queue + the Now Playing panel.
  *
- * Audio path: yt-dlp (a separate program) downloads the song → a memory buffer → ffmpeg (another
- * separate program) applies the volume and encodes Opus → Discord. Either helper crashing only ends
- * that song (it is retried once); it can never take the bot (or the 1v1 system) down with it.
+ * Audio path: yt-dlp (a separate program) downloads the song → a memory buffer → Discord, untouched
+ * (YouTube's Opus is Discord's own format). Only a volume change or a seek adds ffmpeg (another
+ * separate program) to re-encode. Either helper crashing only ends that song (it is retried once);
+ * it can never take the bot (or the 1v1 system) down with it.
  */
 import { spawn } from 'node:child_process';
 import type { ChildProcessByStdio } from 'node:child_process';
@@ -106,7 +107,8 @@ export class GuildPlayer {
         if ('resource' in old && old.resource === this.resource) void this.onTrackEnd();
       }
     });
-    this.audio.on('error', (err) =>
+    this.audio.on('error', (err) => {
+      if (err.resource === this.resource) this.streamFailed = true;
       log.warn(
         'MUSIC_AUDIO_ERROR',
         {
@@ -114,8 +116,8 @@ export class GuildPlayer {
           track: err.resource.metadata ? String((err.resource.metadata as Track).title) : '',
         },
         err,
-      ),
-    );
+      );
+    });
     this.saveTimer = setInterval(() => void this.save(), SAVE_EVERY_MS);
     this.panelTimer = setInterval(() => {
       if (this.status === 'playing') void this.refreshPanel();
@@ -158,7 +160,7 @@ export class GuildPlayer {
     if (!channel.joinable) {
       throw new DomainError('VOICE_FULL', `${channel} is full.`, "Can't join");
     }
-    await findFfmpeg();
+    // ffmpeg is only needed for volume changes and seeking, so it is not required to join.
     const cfg = await getConfig(guild.id);
     const player = new GuildPlayer(guild, channel, textChannelId, {
       volume: cfg.musicVolume,
@@ -345,13 +347,22 @@ export class GuildPlayer {
 
   /**
    * yt-dlp downloads the song → a 32 MB memory buffer (so the download finishes in seconds and
-   * yt-dlp exits, freeing its memory) → ffmpeg sets the volume and encodes Discord's Opus audio.
+   * yt-dlp exits, freeing its memory) → Discord.
+   *
+   * Best quality: YouTube's audio is already Discord's format (Opus 48 kHz), so at normal volume
+   * and from the start it is sent UNTOUCHED (no re-encoding, near-zero CPU). Only a volume change,
+   * a seek, or another format goes through ffmpeg, which re-encodes at 160 kbps.
    */
   private async spawnPipeline(info: StreamInfo, seekSec: number) {
+    const dl = await downloadAudio(info);
+    const buffer = new PassThrough({ highWaterMark: 32 << 20 });
+    dl.proc.stdout.on('error', () => undefined);
+    buffer.on('error', () => undefined);
+    if (info.passthrough && this.volume === 100 && seekSec === 0) {
+      dl.proc.stdout.pipe(buffer);
+      return { dl, ff: null, output: buffer as Readable, type: StreamType.WebmOpus };
+    }
     const ffmpegBin = await findFfmpeg();
-    const ch = this.guild.channels.cache.get(this.voiceChannelId);
-    const bitrate = ch && 'bitrate' in ch && typeof ch.bitrate === 'number' ? ch.bitrate : 64000;
-    const kbps = Math.min(128, Math.max(64, Math.round(bitrate / 1000)));
     const args = [
       '-hide_banner',
       '-loglevel',
@@ -365,7 +376,7 @@ export class GuildPlayer {
       '-c:a',
       'libopus',
       '-b:a',
-      `${kbps}k`,
+      '160k',
       '-ar',
       '48000',
       '-ac',
@@ -378,27 +389,20 @@ export class GuildPlayer {
       'ogg',
       'pipe:1',
     ];
-    const dl = await downloadAudio(info);
     const ff = spawn(ffmpegBin, args, { windowsHide: true, stdio: ['pipe', 'pipe', 'pipe'] });
-    const buffer = new PassThrough({ highWaterMark: 32 << 20 });
     // Killing one side on skip/stop must not crash the other with a "broken pipe".
-    for (const s of [dl.proc.stdout, buffer, ff.stdin]) s.on('error', () => undefined);
+    ff.stdin.on('error', () => undefined);
     dl.proc.stdout.pipe(buffer).pipe(ff.stdin);
-    return { dl, ff };
+    return { dl, ff, output: ff.stdout as Readable, type: StreamType.OggOpus };
   }
 
-  /** Watches both helper programs; any real failure marks the current song as broken. */
-  private watch(dl: AudioDownload, ff: ChildProcessByStdio<Writable, Readable, Readable>): void {
+  /** Watches the helper programs; any real failure marks the current song as broken. */
+  private watch(dl: AudioDownload, ff: ChildProcessByStdio<Writable, Readable, Readable> | null): void {
     let dlErr = '';
-    let ffErr = '';
     dl.proc.stderr.on('data', (d: Buffer) => {
       if (dlErr.length < 2000) dlErr += d.toString('utf8');
     });
-    ff.stderr.on('data', (d: Buffer) => {
-      if (ffErr.length < 2000) ffErr += d.toString('utf8');
-    });
     dl.proc.on('error', (err) => log.warn('MUSIC_DOWNLOAD_ERROR', { guild: this.guild.id }, err));
-    ff.on('error', (err) => log.warn('MUSIC_FFMPEG_ERROR', { guild: this.guild.id }, err));
     dl.proc.on('close', (code, signal) => {
       if (this.download !== dl || signal === 'SIGKILL' || code === 0) return;
       this.streamFailed = true;
@@ -408,6 +412,12 @@ export class GuildPlayer {
         error: dlErr.slice(-300),
       });
     });
+    if (!ff) return;
+    let ffErr = '';
+    ff.stderr.on('data', (d: Buffer) => {
+      if (ffErr.length < 2000) ffErr += d.toString('utf8');
+    });
+    ff.on('error', (err) => log.warn('MUSIC_FFMPEG_ERROR', { guild: this.guild.id }, err));
     ff.on('close', (code, signal) => {
       if (this.ffmpeg !== ff || signal === 'SIGKILL' || code === 0) return;
       this.streamFailed = true;
@@ -429,17 +439,17 @@ export class GuildPlayer {
     try {
       const info = await this.streamFor(track);
       if (token !== this.playToken || this.destroyed) return;
-      const { dl, ff } = await this.spawnPipeline(info, seekSec);
+      const { dl, ff, output, type } = await this.spawnPipeline(info, seekSec);
       if (token !== this.playToken || this.destroyed) {
         dl.proc.kill('SIGKILL');
-        ff.kill('SIGKILL');
+        ff?.kill('SIGKILL');
         return;
       }
       this.download = dl;
       this.ffmpeg = ff;
       this.streamFailed = false;
       this.watch(dl, ff);
-      const resource = createAudioResource(ff.stdout, { inputType: StreamType.OggOpus, metadata: track });
+      const resource = createAudioResource(output, { inputType: type, metadata: track });
       this.resource = resource;
       this.offsetSec = seekSec;
       this.audio.play(resource);

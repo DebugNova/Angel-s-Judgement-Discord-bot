@@ -32,15 +32,16 @@ export const Lore = {
  * Set to '' to leave whatever is typed in the Developer Portal untouched.
  */
 export const Bio = [
-  '⚔️ The ranked 1v1 arbiter of the Seven Angels.',
+  'The ranked 1v1 arbiter of the Seven Angels.',
   '',
-  '• Challenge anyone with /1v1',
-  '• Private match rooms, fair referees',
-  '• Live ELO, stats & leaderboards',
+  '• Ranked 1v1 duels, private match rooms, fair referees',
+  '• Live ELO, stats and leaderboards',
+  '• Music from YouTube, Spotify and SoundCloud',
+  '• Moderation with a full case record',
   '',
   'Every duel is a trial. Every trial ends in judgement.',
   '',
-  '📜 /help to begin',
+  '/help to begin',
 ].join('\n');
 
 export interface StatusStats {
@@ -48,6 +49,12 @@ export interface StatusStats {
   completedMatches: number;
   players: number;
   champion: { name: string; elo: number } | null;
+  /** The longest current win streak (3+). */
+  hotStreak: { name: string; streak: number } | null;
+  /** Duels completed in the last 24 hours. */
+  completedToday: number;
+  /** The song playing right now (in the home server), if any. */
+  nowPlaying: { title: string; author: string } | null;
 }
 
 export type StatusKind = 'watching' | 'competing' | 'playing' | 'listening' | 'custom';
@@ -61,20 +68,40 @@ export const StatusLines: ((s: StatusStats) => { kind: StatusKind; text: string 
   (s) =>
     s.liveMatches > 0
       ? { kind: 'watching', text: `${s.liveMatches} live trial${s.liveMatches === 1 ? '' : 's'}` }
-      : { kind: 'custom', text: '⚔️ The arena is quiet. /1v1 to start a trial' },
+      : { kind: 'custom', text: 'The arena is quiet. Start a trial with /1v1' },
   (s) =>
-    s.champion ? { kind: 'custom', text: `👑 Champion: ${s.champion.name} • ${s.champion.elo} ELO` } : null,
+    s.nowPlaying
+      ? {
+          kind: 'listening',
+          text: `${s.nowPlaying.title}${s.nowPlaying.author ? ` · ${s.nowPlaying.author}` : ''}`,
+        }
+      : null,
+  (s) =>
+    s.champion ? { kind: 'custom', text: `Champion: ${s.champion.name} · ${s.champion.elo} ELO` } : null,
+  (s) =>
+    s.hotStreak
+      ? { kind: 'custom', text: `${s.hotStreak.name} is on a ${s.hotStreak.streak}-win streak` }
+      : null,
   () => ({ kind: 'competing', text: 'ranked 1v1s' }),
+  (s) =>
+    s.completedToday > 0
+      ? {
+          kind: 'watching',
+          text: `${s.completedToday} duel${s.completedToday === 1 ? '' : 's'} judged in the last 24 hours`,
+        }
+      : null,
   (s) =>
     s.completedMatches > 0
       ? {
           kind: 'custom',
-          text: `⚖️ ${s.completedMatches} judgement${s.completedMatches === 1 ? '' : 's'} passed`,
+          text: `${s.completedMatches} judgement${s.completedMatches === 1 ? '' : 's'} passed`,
         }
       : null,
   (s) => (s.players > 0 ? { kind: 'watching', text: `${s.players} angels rise and fall` } : null),
+  (s) => (s.nowPlaying ? null : { kind: 'listening', text: '/play · music for the Seven Angels' }),
+  () => ({ kind: 'custom', text: 'Every duel is a trial. Every trial ends in judgement.' }),
   () => ({ kind: 'listening', text: '/help' }),
-  () => ({ kind: 'custom', text: '✨ Seven Angels. One Judgement.' }),
+  () => ({ kind: 'custom', text: 'Seven Angels. One Judgement.' }),
 ];
 
 /** Moderation wording: the closing line on each case card, DM and confirmation. */

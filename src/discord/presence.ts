@@ -4,6 +4,7 @@ import { log } from '../core/logger.js';
 import { getConfig } from '../modules/configuration/config.service.js';
 import { presenceStats } from '../modules/leaderboard/leaderboard.service.js';
 import { runtimeEnv } from './context.js';
+import { getPlayer } from './music/player.js';
 import { Bio, StatusLines } from './ui/lore.js';
 import type { StatusKind, StatusStats } from './ui/lore.js';
 
@@ -20,7 +21,15 @@ const TYPES: Record<StatusKind, ActivityType> = {
 
 let interval: NodeJS.Timeout | null = null;
 let index = 0;
-let stats: StatusStats = { liveMatches: 0, completedMatches: 0, players: 0, champion: null };
+let stats: StatusStats = {
+  liveMatches: 0,
+  completedMatches: 0,
+  players: 0,
+  champion: null,
+  hotStreak: null,
+  completedToday: 0,
+  nowPlaying: null,
+};
 let statsAt = 0;
 
 /** The server whose champion is shown: the configured one, or the only one the bot is in. */
@@ -30,7 +39,17 @@ function homeGuildId(client: Client<true>): string | null {
   return client.guilds.cache.size === 1 ? (client.guilds.cache.first()?.id ?? null) : null;
 }
 
+/** The song playing in the home server (checked every rotation, so it is always current). */
+function nowPlaying(client: Client<true>): StatusStats['nowPlaying'] {
+  const guildId = homeGuildId(client);
+  const p = guildId ? getPlayer(guildId) : null;
+  const t = p?.playing;
+  if (!t || p?.isPaused) return null;
+  return { title: t.title.slice(0, 80), author: t.author.slice(0, 40) };
+}
+
 async function refreshStats(client: Client<true>): Promise<void> {
+  stats.nowPlaying = nowPlaying(client);
   if (Date.now() - statsAt < STATS_MAX_AGE_MS) return;
   statsAt = Date.now();
   const guildId = homeGuildId(client);
@@ -41,6 +60,9 @@ async function refreshStats(client: Client<true>): Promise<void> {
     completedMatches: s.completedMatches,
     players: s.players,
     champion: s.champion ? { name: s.champion.displayName, elo: s.champion.elo } : null,
+    hotStreak: s.hotStreak ? { name: s.hotStreak.displayName, streak: s.hotStreak.currentWinStreak } : null,
+    completedToday: s.completedToday,
+    nowPlaying: stats.nowPlaying,
   };
 }
 

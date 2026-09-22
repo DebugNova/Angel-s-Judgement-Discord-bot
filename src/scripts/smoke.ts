@@ -490,7 +490,7 @@ try {
       ],
       components: C.pagerRow(theme, (p) => `smoke:${p}`, 0, 3),
     });
-    for (const cat of [null, 'duel', 'stats', 'matches', 'staff', 'music', 'moderation', 'admin'] as const) {
+    for (const cat of [null, ...(Object.keys(E.HELP_CATEGORIES) as E.HelpCategory[])]) {
       await g.send({ embeds: [E.helpEmbed(theme, cat)], components: C.helpSelect(theme, cat) });
     }
     const search = await searchMatches({ guildId: guild.id }, 0, 10);

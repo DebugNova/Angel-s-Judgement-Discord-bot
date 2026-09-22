@@ -459,7 +459,7 @@ const music: SlashCommand = {
     .addSubcommand((s) =>
       s
         .setName('volume')
-        .setDescription('Set the volume (default 80)')
+        .setDescription('Set the volume (100 = original quality, untouched)')
         .addIntegerOption((o) =>
           o.setName('level').setDescription('0–150').setRequired(true).setMinValue(0).setMaxValue(150),
         ),

@@ -100,7 +100,7 @@ model GuildConfig {
   // Music
   /// With DJ roles set, only DJs (and moderators/admins) control playback; others vote to skip.
   musicDjRoleIds    String[] @default([])
-  musicVolume       Int      @default(80)
+  musicVolume       Int      @default(100)
   /// 24/7: stay in the voice channel even when the queue ends or everyone leaves.
   music247          Boolean  @default(false)
 
@@ -471,7 +471,7 @@ model MusicSession {
   queue          Json
   positionSec    Int      @default(0)
   paused         Boolean  @default(false)
-  volume         Int      @default(80)
+  volume         Int      @default(100)
   updatedAt      DateTime @updatedAt
 }
 

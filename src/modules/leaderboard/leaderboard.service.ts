@@ -71,16 +71,27 @@ export interface PresenceStats {
   completedMatches: number;
   players: number;
   champion: Player | null;
+  /** The longest current win streak (3 or more), if anyone has one. */
+  hotStreak: Player | null;
+  /** Matches completed in the last 24 hours. */
+  completedToday: number;
 }
 
 /** Numbers shown in the bot's rotating status. `guildId` null = across every server. */
 export async function presenceStats(guildId: string | null, minMatches: number): Promise<PresenceStats> {
   const scope = guildId ? { guildId } : {};
-  const [liveMatches, completedMatches, players, champion] = await Promise.all([
+  const [liveMatches, completedMatches, players, champion, hotStreak, completedToday] = await Promise.all([
     db().match.count({ where: { ...scope, status: { in: LIVE_STATUSES } } }),
     db().match.count({ where: { ...scope, status: 'COMPLETED' } }),
     db().player.count({ where: scope }),
     guildId ? topPlayers(guildId, 1, minMatches).then((p) => p[0] ?? null) : Promise.resolve(null),
+    db().player.findFirst({
+      where: { ...scope, isBanned: false, currentWinStreak: { gte: 3 } },
+      orderBy: [{ currentWinStreak: 'desc' }, { elo: 'desc' }],
+    }),
+    db().match.count({
+      where: { ...scope, status: 'COMPLETED', completedAt: { gte: new Date(Date.now() - 86_400_000) } },
+    }),
   ]);
-  return { liveMatches, completedMatches, players, champion };
+  return { liveMatches, completedMatches, players, champion, hotStreak, completedToday };
 }

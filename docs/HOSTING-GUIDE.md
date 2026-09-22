@@ -156,6 +156,8 @@ Describe what you want. Claude writes it and runs the **automatic tests** (`npm 
 ### Step 2: Claude's live test
 Claude runs `npm run smoke`. It uses the **test** bot to click through the real Discord flows in **AJ Test** (challenge, match room, report, dispute, referee, leaderboard, backups…). It must end with `ALL … smoke steps passed`. It never touches your clan server or real data.
 
+**If the update changes the database** (new tables or settings), Claude also runs an **update rehearsal**: you download the newest file from **#bot-backups** (right-click the file → **Download**) and move it into your bot folder's **backups** folder. Claude runs `npm run rehearse -- backups/<that file>`: it rebuilds your live database in a throw-away copy, applies the update, and checks that every player, match, ELO and setting is identical afterwards. It must end with `REHEARSAL PASSED`.
+
 ### Step 3: Your test
 1. Double-click **`use-test-bot.bat`** (makes sure your PC uses the test bot).
 2. Double-click **`start.bat`**. **Angel's Judgement Test** comes online in **AJ Test**.

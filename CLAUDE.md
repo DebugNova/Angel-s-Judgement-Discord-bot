@@ -16,6 +16,7 @@ Node 20.11+ (dev machine runs 24) · TypeScript **5.9** strict, ESM (`"type": "m
 | `npm run build` / `npm start` / `start.bat` | build to `dist/` / run the bot |
 | `npm run db:dev` | run the embedded DB in the foreground for `npx prisma migrate dev` / `studio` |
 | `npm run db:backup` / `db:restore -- file --yes` | JSON backup/restore of every table |
+| `npm run rehearse -- backups/<real backup>.json.gz` | **Before every update with a schema change:** loads a real backup into a throw-away DB at the live (origin/main) schema, applies the new migrations, and checks every row/total is unchanged |
 | `npm run commands:deploy -- --validate` | ask Discord to validate command definitions |
 
 ## Layout

@@ -294,7 +294,7 @@ describe('saved playlists and sessions', () => {
     await importAll(snapshot);
     expect(await db().musicPlaylist.count()).toBe(1);
     const cfg = await config();
-    expect(cfg.musicVolume).toBe(80);
+    expect(cfg.musicVolume).toBe(100);
     expect(cfg.music247).toBe(false);
     expect(cfg.musicDjRoleIds).toEqual([]);
   });

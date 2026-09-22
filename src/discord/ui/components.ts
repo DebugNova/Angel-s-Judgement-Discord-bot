@@ -190,14 +190,10 @@ export function helpSelect(
   theme: Theme,
   selected: HelpCategory | null,
 ): ActionRowBuilder<StringSelectMenuBuilder>[] {
-  const menu = new StringSelectMenuBuilder().setCustomId(Ids.help).setPlaceholder('Select a category');
+  void theme;
+  const menu = new StringSelectMenuBuilder().setCustomId(Ids.help).setPlaceholder('Choose a category');
   for (const [key, c] of Object.entries(HELP_CATEGORIES)) {
-    menu.addOptions({
-      label: c.label,
-      value: key,
-      default: key === selected,
-      ...(theme.emojis ? { emoji: c.emoji } : {}),
-    });
+    menu.addOptions({ label: c.label, description: c.summary, value: key, default: key === selected });
   }
   return [new ActionRowBuilder<StringSelectMenuBuilder>().addComponents(menu)];
 }

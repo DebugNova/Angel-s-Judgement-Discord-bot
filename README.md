@@ -196,7 +196,7 @@ The defaults: starting ELO 1000, K-factor 48 (1.5x the master spec's 32, for fas
 | `/resetstats scope:(all/elo/streak/user)` · `/player reset @p` | Resets, with a typed confirmation `RESET SEVEN ANGELS` |
 | `/maintenance enabled:true [message]` | Pause new challenges; ongoing matches continue |
 
-**Music.** Join a voice channel first. Results are posted in the channel; a player panel with buttons (Back, Pause/Resume, Skip, Stop, Shuffle, Loop, Vol −/+, Queue) stays at the bottom of the chat.
+**Music.** Join a voice channel first. Results are posted in the channel; a player panel with buttons (Back, Pause/Resume, Skip, Stop, Shuffle, Loop, Queue) stays at the bottom of the chat.
 
 | Command | Description |
 | --- | --- |
@@ -316,6 +316,7 @@ npm run check        # typecheck + lint + tests
 npm test             # 88 unit, integration and simulated-button tests against a throw-away PostgreSQL
 npm run smoke        # LIVE check in your real server (stop the bot first); cleans up after itself
 npm run db:dev       # run the bundled PostgreSQL in the foreground (for prisma migrate dev / studio)
+npm run rehearse -- backups/<file>.json.gz  # update rehearsal on a real backup (see docs/HOSTING-GUIDE.md §6)
 npm run commands:deploy              # register commands without starting the bot
 npm run commands:deploy -- --validate  # dry-run the command definitions against Discord
 ```

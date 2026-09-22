@@ -41,6 +41,11 @@ export interface StreamInfo {
   resolvedAt: number;
   /** yt-dlp's full details, so the download can start without asking YouTube again. */
   infoJson: string;
+  /**
+   * The audio is already Discord's format (Opus, 48 kHz, in WebM): it can be sent untouched, at
+   * YouTube's original quality, with no re-encoding.
+   */
+  passthrough: boolean;
 }
 
 /** Song details from YouTube stay usable ~6 hours; re-resolve well before that. */
@@ -161,6 +166,7 @@ export async function resolveStream(pageUrl: string): Promise<StreamInfo> {
     isLive: d.is_live === true,
     resolvedAt: Date.now(),
     infoJson: line,
+    passthrough: d.ext === 'webm' && d.acodec === 'opus' && (d.asr === 48000 || d.asr === undefined),
   };
 }
 
