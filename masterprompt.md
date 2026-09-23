@@ -1,5 +1,7 @@
 # SEVEN ANGELS — 1v1 MATCHMAKING & RANKING BOT
 
+> **Historical document.** This is the original v1 specification the bot was built from. The bot has changed since (for example K-factor 48 instead of 32, the name Angel's Judgement, moderation limited to the z role, music). For how the bot works today, see [README.md](README.md), [CLAUDE.md](CLAUDE.md) and [docs/](docs/).
+
 ## MASTER DEVELOPMENT PROMPT
 
 You are an expert Discord bot engineer, backend architect, database designer, UI/UX designer, and security engineer.

@@ -1,6 +1,7 @@
 <!--
   #info channel guide for Angel's Judgement.
-  Discord allows 2000 characters per message, so this is split into 3 messages.
+  Discord allows 2000 characters per message, so this is split into 4 messages
+  (message 4 is about music; skip it if you don't want to advertise music in #info).
   Copy the text between each pair of "MESSAGE" markers and send them in order.
   Do not copy the marker lines themselves.
   Replace #match-history and #leaderboard with your real channels
@@ -118,3 +119,22 @@ If the bot goes offline mid match, nothing is lost. Your match picks up where it
 Questions go to the staff. Everything else is settled in the arena.
 
 > **Every duel is a trial. Every trial ends in judgement.**
+
+<!-- ===================== MESSAGE 4 ===================== -->
+
+## Music
+
+Angel's Judgement can also play music in voice channels. Join a voice channel first, then:
+
+`/play` · a song name or a YouTube, Spotify or SoundCloud link. Albums and playlists work too.
+`/search` · pick the right song from the top 5 results
+`/queue` · see what's coming up
+`/nowplaying` · bring the player back to the bottom of the chat
+`/skip` · next song (sometimes it becomes a vote)
+`/stop` · stop and let the bot leave
+
+The player panel has buttons for **Back, Pause, Skip, Stop, Shuffle, Loop** and **Queue**, so you rarely need to type.
+`/music` has the rest: volume, seek, move, remove, jump, history and more.
+`/playlist save` keeps your queue as your own playlist. `/playlist load` brings it back any time.
+
+Good to know: Spotify songs are played from YouTube, because bots can't stream Spotify directly. The bot pauses when everyone leaves and goes after a couple of minutes alone.

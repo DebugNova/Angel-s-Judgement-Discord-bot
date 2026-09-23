@@ -8,7 +8,11 @@ All settings are per server and take effect immediately. Every change is written
 | --- | --- | --- | --- |
 | `/config channel matches` | category | — | **Required** before anyone can play |
 | `/config channel history · leaderboard · staff · logs` | channel | — | Optional. `/config channel clear` unsets one. |
+| `/config channel modlog` | channel | — | Where every moderation case card is posted. Empty = the logs channel. |
 | `/config roles` | referee · moderator · admin | — | Role picker; select several or none. Admin roles: owner only. |
+| | moderation | z (Seven Angels) | The **only** roles that may use `/ban /kick /timeout /warn /purge /role /slowmode /lock`. Owner, Admin and staff levels don't count. Owner only. Selecting nothing turns moderation off. |
+| | dj | none | Who controls the music. None = everyone in the voice channel. With DJ roles, only DJs, moderation-role holders and admins can pause/stop/seek/change volume etc.; others add songs, skip their own and vote to skip. |
+| `/config moderation` | dm_members | on | Whether members get a DM about the action by default (each command's `dm` option overrides it) |
 | `/config elo` | starting | 1000 | Applies to new players. Use `/resetstats elo` to re-baseline everyone. |
 | | kfactor | 48 | Rating swing per match (max points one duel can move) |
 | | minimum / maximum | 0 / 5000 | Ratings are clamped |
@@ -27,6 +31,9 @@ All settings are per server and take effect immediately. Every change is written
 | | max_size | 30 | Largest `/leaderboard size` |
 | `/config display` | emojis | on | Turns off emojis in embeds and buttons |
 | `/config season` | start / end / view | — | Records which season new matches belong to |
+| `/music stay` | enabled | off | 24/7 mode: the bot stays in voice when the queue ends or everyone leaves. DJs, moderation-role holders and admins. |
+
+Music volume starts at 100% (the original sound, untouched) when the bot joins; `/music volume` (0–150) changes it until the bot leaves (it survives a bot restart). `/config view` shows the moderation and music settings in their own sections.
 
 ## Handling a dispute
 
@@ -51,4 +58,16 @@ Other tools: `/match note` for internal notes, `/match reopen` to send the match
 
 ## Maintenance
 
-`/maintenance enabled:true message:"Back at 8pm"` pauses new challenges and accepts. Matches already in progress finish normally.
+`/maintenance enabled:true message:"Back at 8pm"` pauses new challenges and accepts. Matches already in progress finish normally. Moderation and music are not affected.
+
+## Moderation
+
+Moderation is separate from the 1v1 staff levels above: `/player ban` restricts someone from **ranked play**, `/ban` removes them from the **server**.
+
+- Every action gets a **case number** (`Case #12`), is posted publicly in the channel where it was run, gets a card in the mod-log channel, and is written to the audit log. Nothing is recorded unless Discord accepted the action.
+- `/warnings @member` shows a member's full record; `/unwarn case:<n>` removes a warning (the case stays, shown as removed).
+- Kick, ban, `/role everyone` and purges of more than 10 messages ask for confirmation first. Confirm buttons expire after 2 minutes.
+- Nobody can act on themselves, the server owner, the bot, or anyone whose top role is equal to or higher than theirs or the bot's. Roles with staff powers (e.g. Ban Members, Administrator) can't be given to everyone at once.
+- `/role everyone` works through the member list at about one member per second, shows live progress and can be stopped halfway. It needs **Server Members Intent** in the Developer Portal.
+- `/unlock` restores the channel's exact previous permissions.
+- If you ever restore a backup made **before** moderation existed, pick the moderation role again with `/config roles level:moderation`.

@@ -1,5 +1,7 @@
 # Prompt for the moderation + music conversation
 
+> **Done (September 2026).** Moderation and music are built, tested and pushed, and the test bot is set up. This file is kept as a record of what was asked. For new bugs or changes, use the prompts in [DEBUGGING.md](DEBUGGING.md). What was built: README section 6, [ADMIN.md](ADMIN.md) and [ARCHITECTURE.md](ARCHITECTURE.md).
+
 Copy everything between the lines below and paste it as the first message of a new conversation.
 
 ---

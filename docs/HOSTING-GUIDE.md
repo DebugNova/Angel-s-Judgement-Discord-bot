@@ -30,7 +30,7 @@ Your bot runs 24/7 on **Shulker**. This guide tells you how to look after it, ho
 | **Shulker** | The **real** bot and its database. The bot lives in `/data/bot`, the database in `/data/postgres`. |
 | **Discord #bot-backups** | A copy of your data, posted automatically every hour when something changed. **Your safety net.** |
 | **GitHub** | The bot's code only (no data, no token). Shulker downloads new versions from here. |
-| **Your PC** | Where changes are made and tested, using a separate **test** bot (section 7). |
+| **Your PC** | Where changes are made and tested, using a separate **test** bot (**Angel's Judgement Test**) in your **AJ Test** server (section 7). |
 
 How a change travels:
 ```
@@ -111,7 +111,7 @@ It also saves one automatically **before every update** (`backups/before-update/
 | What | Size |
 | --- | --- |
 | One backup | about **3 KB** now; even after 10,000 matches only 3–5 MB |
-| Bot program and its parts | about 560 MB (doesn't grow) |
+| Bot program and its parts | about 600–700 MB, including the music programs (doesn't grow) |
 | Database | about 50 MB (grows very slowly) |
 | Logs | a few MB (deleted after 30 days) |
 | **Total** | **under 1 GB, and it stays that way** |
@@ -151,10 +151,10 @@ This is how **every** change goes live, from a small text fix to a big new featu
 - A bad version can always be undone (see "If something goes wrong" below).
 
 ### Step 1: Ask Claude for the change
-Describe what you want. Claude writes it and runs the **automatic tests** (`npm run check`): about 60+ checks of the rules (ELO, matches, permissions, backups). New features get their own new tests.
+Describe what you want. Claude writes it and runs the **automatic tests** (`npm run check`): 111 checks of the rules (ELO, matches, permissions, backups, moderation, music). New features get their own new tests.
 
 ### Step 2: Claude's live test
-Claude runs `npm run smoke`. It uses the **test** bot to click through the real Discord flows in **AJ Test** (challenge, match room, report, dispute, referee, leaderboard, backups…). It must end with `ALL … smoke steps passed`. It never touches your clan server or real data.
+Claude runs `npm run smoke`. It uses the **test** bot to click through the real Discord flows in **AJ Test** (challenge, match room, report, dispute, referee, leaderboard, moderation, music…). It must end with `ALL 27/27 smoke steps passed`. It never touches your clan server or real data.
 
 **If the update changes the database** (new tables or settings), Claude also runs an **update rehearsal**: you download the newest file from **#bot-backups** (right-click the file → **Download**) and move it into your bot folder's **backups** folder. Claude runs `npm run rehearse -- backups/<that file>`: it rebuilds your live database in a throw-away copy, applies the update, and checks that every player, match, ELO and setting is identical afterwards. It must end with `REHEARSAL PASSED`.
 
@@ -182,7 +182,7 @@ Paste into Shulker:
 ```
 sh /data/bot/scripts/host-update.sh
 ```
-It does, in order: stop the bot → **back up the data** → download the new version → install and build → start it again. It ends with **`Update finished.`**
+It does, in order: install any missing system programs (like ffmpeg) → stop the bot → **back up the data** → download the new version → install and build → start it again. It ends with **`Update finished.`**
 
 ### Step 6: Check it
 ```
@@ -195,12 +195,12 @@ Some features need a little more than code. Claude tells you exactly which ones 
 
 | Needs | Why | What you do |
 | --- | --- | --- |
-| **New Discord permissions** | Moderation needs Kick, Ban, Timeout and Manage Messages; music needs Connect and Speak | Server Settings → Roles → the bot's role → turn them on. Do it in **AJ Test** for testing and in your **clan server** before going live. |
-| **Developer Portal switches** | For example "Server Members Intent" for moderation | Developer Portal → the app → **Bot** → turn it on. Do it for **both** the test bot and the real bot. |
-| **Extra programs on Shulker** | Music needs `ffmpeg` to play sound | Nothing extra: Claude makes `host-update.sh` install it automatically. |
+| **New Discord permissions** | Moderation needs Kick, Ban, Timeout and Manage Messages; music needs Connect and Speak | Server Settings → Roles → the bot's role → turn them on, and drag the bot's role **above** the roles it should moderate. Do it in **AJ Test** for testing and in your **clan server** before going live. |
+| **Developer Portal switches** | "Server Members Intent" for `/role everyone` | Developer Portal → the app → **Bot** → turn it on. Do it for **both** the test bot and the real bot. |
+| **Extra programs on Shulker** | Music uses `ffmpeg` | `host-update.sh` installs missing programs by itself. If a brand-new one is still missing after an update, run `host-update.sh` once more. |
 | **New settings** | For example a music service key | Claude gives you the `host-env.sh` line to paste (section 11). |
 
-**About server size:** music uses more of the server's power than the rest of the bot. Your 512 MB / 1 CPU plan is fine for one voice channel at a time. After launch, check `host-logs.sh` and Shulker's CPU/RAM numbers for a few days.
+**About server size:** music uses more of the server's power than the rest of the bot. The bot sends YouTube's sound untouched at volume 100, which costs almost no CPU; changing the volume or seeking uses more. Your 512 MB / 1 CPU plan is fine for one voice channel at a time. The bot's build step is kept light so it fits in 512 MB. Check `host-logs.sh` and Shulker's CPU/RAM numbers now and then.
 
 ### If something goes wrong
 | You see | Do this |

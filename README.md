@@ -4,7 +4,7 @@
 >
 > (All lore and branding text lives in [`src/discord/ui/lore.ts`](src/discord/ui/lore.ts). Edit that one file to change it.)
 
-**Angel's Judgement** is the 1v1 matchmaking and ranking bot for the **Seven Angels** Discord server. It handles challenges, private match rooms, result reporting and confirmation, referee review of disputes, ELO, stats, leaderboards and match history.
+**Angel's Judgement** is the 1v1 matchmaking and ranking bot for the **Seven Angels** Discord server. It handles challenges, private match rooms, result reporting and confirmation, referee review of disputes, ELO, stats, leaderboards and match history. It also includes **moderation** (warnings, timeouts, kicks, bans, purges, roles, slowmode, lock, with numbered cases and a mod-log) and **music** (YouTube, Spotify and SoundCloud, with a queue, a player panel and saved playlists).
 
 - **Free to run:** a single Node.js process plus PostgreSQL. On a laptop the bot starts its own bundled PostgreSQL, so there is nothing else to install and no paid services.
 - **Safe:** challenges, accepts, results and ELO updates all run inside database transactions with row locks. A match is finalized exactly once, so double clicks and simultaneous presses can't award ELO twice.
@@ -29,13 +29,13 @@
 
 **Hosting on Shulker, testing and updating, step by step:** [docs/HOSTING-GUIDE.md](docs/HOSTING-GUIDE.md)
 
-More detail: [TEST.md](TEST.md) (step-by-step testing) · [docs/DEBUGGING.md](docs/DEBUGGING.md) (bugs & fixes) · [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md) · [docs/ADMIN.md](docs/ADMIN.md)
+More detail: [TEST.md](TEST.md) (step-by-step testing) · [docs/DEBUGGING.md](docs/DEBUGGING.md) (bugs & fixes) · [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md) · [docs/ADMIN.md](docs/ADMIN.md) (every setting) · [docs/info-channel.md](docs/info-channel.md) (member guide to post in #info)
 
 ---
 
 ## 1. Quick start (Windows laptop)
 
-**Requirements:** [Node.js 20.11+ (LTS)](https://nodejs.org). Nothing else.
+**Requirements:** [Node.js 20.11+ (LTS)](https://nodejs.org). For music, also **ffmpeg** (`winget install Gyan.FFmpeg`, then open a new terminal). Everything else, including PostgreSQL and the YouTube reader (yt-dlp), the bot brings or downloads itself.
 
 1. Fill in `.env` (copy `.env.example` → `.env` and set `DISCORD_TOKEN`).
 2. Double-click **`start.bat`**, or run:
@@ -48,7 +48,7 @@ More detail: [TEST.md](TEST.md) (step-by-step testing) · [docs/DEBUGGING.md](do
 
 On first start the bot:
 
-1. downloads nothing extra: PostgreSQL ships inside `node_modules`. It creates a database under `%LOCALAPPDATA%\SatanBot\postgres`, deliberately outside OneDrive, because sync tools can corrupt live databases.
+1. uses the PostgreSQL that ships inside `node_modules`. It creates a UTF-8 database under `%LOCALAPPDATA%\SatanBot\postgres`, deliberately outside OneDrive, because sync tools can corrupt live databases.
 2. applies database migrations,
 3. logs in and registers its slash commands in every server it has joined (updates show up instantly).
 
@@ -126,7 +126,15 @@ Run these as the server owner or an Administrator. Setup is also shown in `/help
 /config roles level:admin        → + configuration and resets   (server owner only)
 ```
 
-**Step 4: check everything:** `/config view`
+**Step 4: moderation and music (optional)**
+
+```
+/config roles level:moderation   → the ONLY roles that may use /ban /kick /warn …   (server owner only; Seven Angels: z)
+/config channel modlog channel:#mod-log   → one card per moderation case (falls back to the logs channel)
+/config roles level:dj           → who controls the music (none set = everyone in the voice channel)
+```
+
+**Step 5: check everything:** `/config view`
 
 The defaults: starting ELO 1000, K-factor 48 (1.5x the master spec's 32, for faster climbs), 60 s challenge timeout, 60 s pair cooldown, 5 matches to be ranked, and match channels deleted 10 minutes after the match ends. You can change all of them; see [docs/ADMIN.md](docs/ADMIN.md).
 
@@ -192,7 +200,7 @@ The defaults: starting ELO 1000, K-factor 48 (1.5x the master spec's 32, for fas
 
 | Command | Description |
 | --- | --- |
-| `/config view · channel · roles · elo · cooldown · challenge · matches · leaderboard · display · season` | Configuration |
+| `/config view · channel · roles · moderation · elo · cooldown · challenge · matches · leaderboard · display · season` | Configuration (full list in [docs/ADMIN.md](docs/ADMIN.md)) |
 | `/resetstats scope:(all/elo/streak/user)` · `/player reset @p` | Resets, with a typed confirmation `RESET SEVEN ANGELS` |
 | `/maintenance enabled:true [message]` | Pause new challenges; ongoing matches continue |
 
@@ -242,6 +250,8 @@ Permission levels: **Owner** (server owner or `BOT_OWNER_IDS`) > **Admin** (Disc
 | `BACKUP_INTERVAL_MINUTES` | | Automatic backup check interval, default `60`; `0` = off |
 | `BACKUP_KEEP` | | Automatic backups kept in `backups/auto/`, default `48` |
 | `BACKUP_CHANNEL_ID` | | Private (owner-only) channel that receives every automatic backup |
+| `FFMPEG_PATH` / `YTDLP_PATH` | | Music: only to override where ffmpeg / yt-dlp are found |
+| `TOOLS_DIR` | | Music: where the bot keeps its own yt-dlp (defaults: `%LOCALAPPDATA%\SatanBot\bin` on Windows, `./tools` elsewhere) |
 
 `.env` is git-ignored and must never be committed.
 
@@ -249,7 +259,7 @@ Permission levels: **Owner** (server owner or `BOT_OWNER_IDS`) > **Admin** (Disc
 
 ## 8. Database, migrations & backups
 
-- **Schema:** [`prisma/schema.prisma`](prisma/schema.prisma). Main models: GuildConfig, Player, Challenge, Match, MatchParticipant, MatchResult, EloHistory, Evidence, MatchNote, Season, Cooldown and AuditLog.
+- **Schema:** [`prisma/schema.prisma`](prisma/schema.prisma). Main models: GuildConfig, Player, Challenge, Match, MatchParticipant, MatchResult, EloHistory, Evidence, MatchNote, Season, Cooldown, AuditLog, ModCase (moderation cases), MusicSession (what's playing, for resume after a restart) and MusicPlaylist.
 - **Migrations** run automatically on every start (`prisma migrate deploy`). You can also run `npm run db:migrate` by hand.
 - **Backup:** `npm run db:backup` writes `backups/satan-<timestamp>.json.gz`, a full export of every table, and prints the row counts. It works with the bundled database and with any PostgreSQL.
 - **Restore:** stop the bot, then run `npm run db:restore -- backups/<file>.json.gz --yes` (old plain `.json` backups work too). This **replaces** all current data. The data that was there is saved to `backups/before-restore/` first.
@@ -265,7 +275,9 @@ Daily log files in `logs/` are deleted after 30 days.
 
 The bot must run as **exactly one instance** per token.
 
-**Docker (VPS, recommended)** — bot + PostgreSQL, restarts automatically:
+The live bot runs on the **Linux container host** below (Shulker). The Docker files are older and not maintained: the `Dockerfile` doesn't copy `scripts/` (needed by `npm run build`) or install ffmpeg (needed for music), so fix both before using it.
+
+**Docker (VPS)**: bot + PostgreSQL, restarts automatically:
 
 ```bash
 cp .env.example .env        # set DISCORD_TOKEN, BOT_OWNER_IDS
@@ -299,12 +311,13 @@ sh /data/bot/scripts/host-start.sh          # or host-restore.sh <backup> to bri
 | `host-setup.sh` | One-time install; leaves the bot stopped until `host-start.sh` or `host-restore.sh` |
 | `host-start.sh` / `host-stop.sh` | Start or resume / stop the bot (stays stopped until started) |
 | `host-logs.sh` | Status of the bot and database plus the latest log lines |
-| `host-update.sh` | Backup → `git pull` → build → restart |
+| `host-update.sh` | Install missing system packages (e.g. ffmpeg) → stop → backup → `git pull` → `npm ci` → build → restart |
+| `host-env.sh NAME VALUE` / `host-env.sh check` | Set one `.env` value without printing the file / show the settings with secrets hidden |
 | `host-restore.sh <file>` | Replace all data with a backup, then restart |
 
 **Laptop, always on:** run `start.bat` at login (Task Scheduler → *At log on* → `start.bat`).
 
-Environments: use a separate bot application and test server for development (`NODE_ENV=development`, `DISCORD_GUILD_ID=<test server>`). Don't test resets in production.
+Environments: use a separate bot application and test server for development (`NODE_ENV=development`, `DISCORD_GUILD_ID=<test server>`). On the owner's PC this is `.env.test` (test bot in **AJ Test**), switched on with `use-test-bot.bat`; `.env.production` keeps the real settings for emergencies (`use-real-bot.bat`). Don't test resets in production.
 
 ---
 
@@ -313,8 +326,9 @@ Environments: use a separate bot application and test server for development (`N
 ```bash
 npm run dev          # watch mode (tsx)
 npm run check        # typecheck + lint + tests
-npm test             # 88 unit, integration and simulated-button tests against a throw-away PostgreSQL
-npm run smoke        # LIVE check in your real server (stop the bot first); cleans up after itself
+npm test             # 111 unit, integration and simulated-button tests against a throw-away PostgreSQL
+npm run smoke        # 27-step LIVE check in the TEST server (stop the bot first; refuses the real token); cleans up after itself
+npm run build        # fast per-file build without type checking (fits a 512 MB host); `npm run typecheck` checks types
 npm run db:dev       # run the bundled PostgreSQL in the foreground (for prisma migrate dev / studio)
 npm run rehearse -- backups/<file>.json.gz  # update rehearsal on a real backup (see docs/HOSTING-GUIDE.md §6)
 npm run commands:deploy              # register commands without starting the bot
@@ -323,7 +337,7 @@ npm run commands:deploy -- --validate  # dry-run the command definitions against
 
 Schema changes: start `npm run db:dev` and set `DATABASE_URL` to the printed URL. Then run `npx prisma migrate dev --name <change>` and commit the new folder in `prisma/migrations`.
 
-The tests cover the challenge rules, cooldowns, expiry, accept and report races, confirmation, disputes, referee decisions, idempotent finalization, ELO math, permissions, cancel and reopen, leaderboard eligibility, resets and backup/restore.
+The tests cover the challenge rules, cooldowns, expiry, accept and report races, confirmation, disputes, referee decisions, idempotent finalization, ELO math, permissions, cancel and reopen, leaderboard eligibility, resets, backup/restore, moderation (cases, safety rules, durations, purge filters, the z-role gate), music (queue, loop, shuffle, links, DJ rules, playlists) and that every command appears in `/help`.
 
 ---
 
@@ -340,6 +354,11 @@ The tests cover the challenge rules, cooldowns, expiry, accept and report races,
 | "Another service is using port 54321" | Set `EMBEDDED_DB_PORT` to another free port |
 | Bot replies "Something went wrong" | Check the console. Every failure is logged with details there (never shown to users). |
 | Duplicate command responses | Two copies of the bot are running with the same token. Stop one. |
+| "Moderation is reserved for …" | Only the moderation role may moderate, not even the owner. `/config roles level:moderation` (owner only). |
+| Moderation says the member is above you or the bot | Move the bot's role higher in Server Settings → Roles. Nobody can act on someone with an equal or higher top role. |
+| Music: "the audio program (ffmpeg) is not installed" | Windows: `winget install Gyan.FFmpeg`, then restart the bot. Shulker: run `host-update.sh` once. |
+| YouTube songs fail for everyone (`YOUTUBE_BLOCKED`) | YouTube is blocking the host's IP for a while. The bot updates yt-dlp daily; wait a few hours. Spotify links also play from YouTube, so they're affected too. |
+| Bot joins voice but there's no sound | Give the bot **Connect** and **Speak** on that voice channel. |
 
 ---
 

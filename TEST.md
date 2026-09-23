@@ -20,15 +20,16 @@ What's left for you is what only a human can do: **pressing the buttons as real 
 
 > Only have one friend? Then you + friend are the players for sections 3–5 and 7. For section 6 (referee) you need two *other* people to play while you referee, or give a trusted member a referee role and let them judge a match you play.
 
-Test **inside your real server**. Everything happens in channels only staff and the players can see. Section 12 wipes all test stats when you're done.
+Test in your **AJ Test** server with the **test** bot. The real bot and its data on Shulker are never touched. Section 12 wipes all test stats when you're done.
 
 ---
 
 ## 1. Start the bot
 
+- [ ] Make sure your PC is on the **test** bot: double-click **`use-test-bot.bat`** first (see [HOSTING-GUIDE section 7](docs/HOSTING-GUIDE.md#7-one-time-set-up-your-pc-as-a-test-machine)). The real bot runs on Shulker; never start it here too.
 - [ ] Double-click **`start.bat`** in the bot folder. A black window opens.
-- [ ] **Expected:** within about 15 seconds the window shows `BOT_READY user="Angel's Judgement#6013"` and `COMMANDS_REGISTERED … count=37`.
-- [ ] In Discord the bot shows as **online**, *"Watching over the Seven Angels"*.
+- [ ] **Expected:** within about 15 seconds the window shows `BOT_READY user="Angel's Judgement Test#…"` and `COMMANDS_REGISTERED … count=37`.
+- [ ] In **AJ Test** the bot shows as **online**, with a status that changes every 10 seconds (live matches, champion, now playing…).
 - [ ] Type `/` in any channel. **Expected:** Angel's Judgement's commands appear (1v1, challenge, stats, leaderboard, …).
 
 Keep that window open the whole time. Closing it stops the bot. Everything the window prints is also saved to `logs/bot-<date>.log`.
@@ -59,7 +60,7 @@ Then run:
 
 ## 3. Basic commands (anyone)
 
-- [ ] `/help` → only you can see it. Pick each category in the menu; the text changes.
+- [ ] `/help` → only you can see it. Pick each category in the menu (including Moderation and Music); the text changes.
 - [ ] `/about` → gold "ANGEL'S JUDGEMENT — SEVEN ANGELS" card with the lore.
 - [ ] `/botstatus` → Online, Database Connected, latency. As an admin you also see "Technical (admin only)".
 - [ ] `/stats` → your profile: ELO **1,000**, Rank "Unranked (0/…)", Choir of the Virtues.
@@ -103,8 +104,8 @@ Player A and Player B in any normal channel:
 - [ ] **A** presses **Confirm Result** → "You reported this result. Waiting for @B to confirm."
 - [ ] **B** presses **Confirm Result**.
 - [ ] **Expected in #queue-001:** 🏆 **MATCH COMPLETED**. Winner A, loser B, Method "Opponent Confirmation", and ELO **A 1,000 → 1,024 (+24)**, **B 1,000 → 976 (−24)**, plus "archived in X minutes". A and B can no longer type there.
-- [ ] **Expected in #match-history:** "1v1 MATCH COMPLETE", A defeated B, +16 / −16, *no server link shown*.
-- [ ] **Expected in #leaderboard** (within ~5 s, if min_matches is 1): A #1 1,016, B #2 984, edited in place (no new message).
+- [ ] **Expected in #match-history:** "1v1 MATCH COMPLETE", A defeated B, +24 / −24, *no server link shown*.
+- [ ] **Expected in #leaderboard** (within ~5 s, if min_matches is 1): A #1 1,024, B #2 976, edited in place (no new message).
 - [ ] B presses **Confirm Result** again on an old panel (if one is still visible) → "already finalized" or "no longer available". **ELO does not change again.**
 - [ ] `/stats` as A → 1,024 ELO, 1 match, 1 win, 100% win rate, streak 1 Win, recent results 🟢 W.
 - [ ] `/history` as A → SA-000001 vs B, **+24 ELO**.
