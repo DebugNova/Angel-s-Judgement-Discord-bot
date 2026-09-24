@@ -9,6 +9,15 @@ describe('ELO', () => {
     expect(r).toMatchObject({ winnerNew: 1016, loserNew: 984, winnerChange: 16, loserChange: -16 });
   });
 
+  it('default K-factor 120: equal-rated players exchange 60 points, upsets up to 120', () => {
+    const big = { kFactor: 120, minElo: 0, maxElo: 5000 };
+    expect(calculateElo(1000, 1000, big)).toMatchObject({ winnerChange: 60, loserChange: -60 });
+    const upset = calculateElo(1000, 1400, big);
+    expect(upset.winnerChange).toBeGreaterThan(100);
+    expect(upset.winnerChange).toBeLessThanOrEqual(120);
+    expect(calculateElo(1400, 1000, big).winnerChange).toBeLessThan(20);
+  });
+
   it('higher-rated winner gains less', () => {
     const r = calculateElo(1400, 1000, settings);
     expect(r.winnerChange).toBe(3);

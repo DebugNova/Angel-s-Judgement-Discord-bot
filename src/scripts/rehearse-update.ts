@@ -2,6 +2,7 @@
  * Update rehearsal: proves an update keeps every row of real data, before it goes live.
  *
  *   npm run rehearse -- backups/<a real backup>.json.gz        (compares with GitHub's main branch)
+ *   … --allow-setting=kFactor   when the update deliberately changes that GuildConfig setting
  *
  * 1. A throw-away PostgreSQL gets ONLY the database changes the live bot already has (the migrations
  *    in origin/main), so it looks exactly like the live database today.
@@ -26,8 +27,17 @@ import { setLogLevel } from '../core/logger.js';
 const file = process.argv[2];
 const liveRef =
   process.argv.find((a) => a.startsWith('--live-ref='))?.slice('--live-ref='.length) ?? 'origin/main';
+/** GuildConfig settings this update is meant to change: reported, but not counted as a failure. */
+const allowedSettings = (
+  process.argv.find((a) => a.startsWith('--allow-setting='))?.slice('--allow-setting='.length) ?? ''
+)
+  .split(',')
+  .filter(Boolean);
+const INTENDED = ' (intended change)';
 if (!file) {
-  console.error('Usage: npm run rehearse -- backups/<file>.json.gz [--live-ref=origin/main]');
+  console.error(
+    'Usage: npm run rehearse -- backups/<file>.json.gz [--live-ref=origin/main] [--allow-setting=kFactor,…]',
+  );
   process.exit(1);
 }
 setLogLevel('error');
@@ -94,6 +104,10 @@ async function fingerprint(c: PrismaClient, tables: string[]): Promise<Fingerpri
     `SELECT "guildId", "matchCategoryId", "logChannelId", "refereeRoleIds", "moderatorRoleIds", "adminRoleIds",
             "startingElo", "kFactor", "matchCounter" FROM "GuildConfig" ORDER BY "guildId"`,
   );
+  for (const col of allowedSettings) {
+    fp[`GuildConfig ${col}${INTENDED}`] = JSON.stringify(cfg.map((r) => r[col]));
+    for (const r of cfg) delete r[col];
+  }
   fp['GuildConfig settings'] = JSON.stringify(cfg);
   return fp;
 }
@@ -150,8 +164,9 @@ try {
   let same = true;
   for (const [k, v] of Object.entries(before)) {
     const a = after[k];
-    const mark = a === v ? 'same' : 'CHANGED';
-    if (a !== v) same = false;
+    const intended = k.endsWith(INTENDED);
+    const mark = a === v ? 'same' : intended ? 'wanted' : 'CHANGED';
+    if (a !== v && !intended) same = false;
     console.log(
       `  ${mark.padEnd(7)} ${k}: ${v.length > 60 ? `${v.slice(0, 57)}…` : v}${a !== v ? `  →  ${a}` : ''}`,
     );
@@ -170,7 +185,9 @@ try {
   ok = same;
   console.log(
     same
-      ? '\nREHEARSAL PASSED: every row and total is identical after the update.'
+      ? `\nREHEARSAL PASSED: every row and total is identical after the update${
+          allowedSettings.length ? ` (apart from the intended ${allowedSettings.join(', ')} change)` : ''
+        }.`
       : '\nREHEARSAL FAILED: something changed. Do NOT update; send this output to Claude.',
   );
 } finally {

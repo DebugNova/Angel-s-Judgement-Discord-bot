@@ -106,7 +106,7 @@ model GuildConfig {
 
   // ELO
   startingElo Int @default(1000)
-  kFactor     Int @default(48)
+  kFactor     Int @default(120)
   minElo      Int @default(0)
   maxElo      Int @default(5000)
 

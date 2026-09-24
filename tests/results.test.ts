@@ -29,22 +29,22 @@ describe('result confirmation', () => {
       actorDiscordId: B.discordId,
       config: await config(),
     });
-    expect(out.elo).toMatchObject({ winnerOld: 1000, winnerNew: 1024, loserOld: 1000, loserNew: 976 });
+    expect(out.elo).toMatchObject({ winnerOld: 1000, winnerNew: 1060, loserOld: 1000, loserNew: 940 });
 
     const [a, b] = [await player(A), await player(B)];
     expect(a).toMatchObject({
-      elo: 1024,
+      elo: 1060,
       wins: 1,
       losses: 0,
       matchesPlayed: 1,
       currentWinStreak: 1,
       highestWinStreak: 1,
-      highestElo: 1024,
+      highestElo: 1060,
       winRate: 100,
       currentMatchId: null,
     });
     expect(b).toMatchObject({
-      elo: 976,
+      elo: 940,
       wins: 0,
       losses: 1,
       matchesPlayed: 1,
@@ -93,7 +93,7 @@ describe('result confirmation', () => {
       ),
     );
     expect(results.filter((r) => r.status === 'fulfilled')).toHaveLength(1);
-    expect((await player(A)).elo).toBe(1024);
+    expect((await player(A)).elo).toBe(1060);
     expect((await player(A)).wins).toBe(1);
     expect(await db().eloHistory.count({ where: { matchId: id } })).toBe(2);
   });
@@ -154,7 +154,7 @@ describe('disputes & referees', () => {
       resolutionMethod: 'REFEREE_DECISION',
       decisionReason: 'Evidence reviewed',
     });
-    expect((await player(A)).elo).toBe(1024);
+    expect((await player(A)).elo).toBe(1060);
     const audit = await db().auditLog.findFirst({ where: { action: 'MATCH_DECISION' } });
     expect(audit?.actorId).toBe(REF.discordId);
   });

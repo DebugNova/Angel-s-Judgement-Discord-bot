@@ -14,7 +14,7 @@ All settings are per server and take effect immediately. Every change is written
 | | dj | none | Who controls the music. None = everyone in the voice channel. With DJ roles, only DJs, moderation-role holders and admins can pause/stop/seek/change volume etc.; others add songs, skip their own and vote to skip. |
 | `/config moderation` | dm_members | on | Whether members get a DM about the action by default (each command's `dm` option overrides it) |
 | `/config elo` | starting | 1000 | Applies to new players. Use `/resetstats elo` to re-baseline everyone. |
-| | kfactor | 48 | Rating swing per match (max points one duel can move) |
+| | kfactor | 120 | Rating swing per match (max points one duel can move; an even duel moves half of it, 60) |
 | | minimum / maximum | 0 / 5000 | Ratings are clamped |
 | `/config challenge` | timeout | 60 s | Time to accept |
 | | max_incoming | 3 | Pending challenges one player can receive |

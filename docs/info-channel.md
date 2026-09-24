@@ -58,7 +58,7 @@ Every player starts at **1000 ELO**.
 
 Beating a higher rated opponent earns you more points. Beating a lower rated one earns fewer. Losses work the same way in reverse. The system rewards facing strong opponents, not farming weak ones.
 
-A win against an equal opponent is worth **24 points**. Upsets are worth up to **48**.
+A win against an equal opponent is worth **60 points**. Upsets are worth up to **120**.
 
 Your rating places you in one of the **Seven Choirs**:
 

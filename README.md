@@ -136,7 +136,7 @@ Run these as the server owner or an Administrator. Setup is also shown in `/help
 
 **Step 5: check everything:** `/config view`
 
-The defaults: starting ELO 1000, K-factor 48 (1.5x the master spec's 32, for faster climbs), 60 s challenge timeout, 60 s pair cooldown, 5 matches to be ranked, and match channels deleted 10 minutes after the match ends. You can change all of them; see [docs/ADMIN.md](docs/ADMIN.md).
+The defaults: starting ELO 1000, K-factor 120 (an even duel moves 60 points, for big swings), 60 s challenge timeout, 60 s pair cooldown, 5 matches to be ranked, and match channels deleted 10 minutes after the match ends. You can change all of them; see [docs/ADMIN.md](docs/ADMIN.md).
 
 ---
 

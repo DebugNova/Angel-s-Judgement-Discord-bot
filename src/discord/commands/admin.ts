@@ -196,7 +196,7 @@ const configCommand: SlashCommand = {
             .setMaxValue(10000),
         )
         .addIntegerOption((o) =>
-          o.setName('kfactor').setDescription('K-factor (default 48)').setMinValue(1).setMaxValue(200),
+          o.setName('kfactor').setDescription('K-factor (default 120)').setMinValue(1).setMaxValue(200),
         )
         .addIntegerOption((o) =>
           o
